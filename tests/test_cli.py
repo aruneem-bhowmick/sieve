@@ -1,9 +1,11 @@
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
 from sieve import cli
+from sieve.persistence import create_run_directory, write_trace
 from sieve.schemas import InterventionMetadata, TestResult, TraceRecord
 
 
@@ -155,3 +157,155 @@ def test_cli_int02_loads_task_local_constraint_fixture(
     assert trace.intervention.replacement_value is not None
     assert trace.intervention.replacement_value.startswith("Preserve a leading #")
     assert len(trace.steps) == len(trace.tool_results)
+
+
+def test_cli_score_accepts_run_ids_and_runs_dir_and_prints_score_path(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    baseline_id = uuid4()
+    perturbed_id = uuid4()
+    runs = tmp_path / "runs"
+    baseline_dir = create_run_directory(runs, baseline_id)
+    perturbed_dir = create_run_directory(runs, perturbed_id)
+    for run_dir in (baseline_dir, perturbed_dir):
+        workspace = run_dir / "workspace" / "src"
+        workspace.mkdir(parents=True)
+        (workspace / "value.ts").write_text(
+            "export function value(): number { return 1; }\n", encoding="utf-8"
+        )
+    diff = (
+        "--- a/src/value.ts\n+++ b/src/value.ts\n@@ -1 +1 @@\n"
+        "-export function value(): number { return 1; }\n"
+        "+export function value(): number { return 1; }\n"
+    )
+    write_trace(
+        baseline_dir,
+        TraceRecord(
+            task_id="SIEVE-T1",
+            run_id=baseline_id,
+            run_type="baseline",
+            intervention=InterventionMetadata(),
+            steps=[],
+            final_diff=diff,
+            test_result=TestResult(passed=["vitest"], failed=[]),
+        ),
+    )
+    write_trace(
+        perturbed_dir,
+        TraceRecord(
+            task_id="SIEVE-T1",
+            run_id=perturbed_id,
+            run_type="perturbed",
+            intervention=InterventionMetadata(
+                type="INT-01",
+                target_step_id="TSIEVE-T1-S001",
+                target_field="claim",
+                original_value="claim",
+                replacement_value="",
+            ),
+            steps=[],
+            final_diff=diff,
+            test_result=TestResult(passed=["vitest"], failed=[]),
+        ),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "score",
+            str(baseline_id),
+            str(perturbed_id),
+            "--runs-dir",
+            str(runs),
+        ],
+    )
+
+    cli.main()
+
+    path = perturbed_dir / "score.json"
+    assert capsys.readouterr().out.strip() == f"score={path}"
+    assert path.is_file()
+
+
+def test_cli_rejects_resume_and_intervene_without_required_artifacts(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    for command in ("resume", "intervene"):
+        arguments = [
+            "sieve",
+            command,
+            "--baseline-run-dir",
+            str(tmp_path / "missing"),
+            "--step",
+            "TSIEVE-T1-S001",
+        ]
+        if command == "intervene":
+            arguments.extend(["--type", "INT-01"])
+        monkeypatch.setattr("sys.argv", arguments)
+        with pytest.raises(ValueError, match="baseline run directory"):
+            cli.main()
+
+
+def test_cli_live_paths_select_the_openai_backend_without_a_network_call(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    trace = TraceRecord(
+        task_id="SIEVE-T1",
+        run_id=uuid4(),
+        run_type="baseline",
+        intervention=InterventionMetadata(),
+        steps=[],
+        final_diff="",
+        test_result=TestResult(passed=[], failed=[]),
+    )
+    baseline_dir = tmp_path / "baseline"
+    baseline_dir.mkdir()
+    (baseline_dir / "checkpoints").mkdir()
+    write_trace(baseline_dir, trace)
+    monkeypatch.setattr("sieve.cli.OpenAIResponsesBackend", lambda model: object())
+
+    def fake_task_run(
+        self: object, task_id: str, backend: object
+    ) -> tuple[Path, TraceRecord]:
+        del self, task_id, backend
+        return tmp_path, trace
+
+    def fake_resume(self: object, *args: object) -> tuple[Path, TraceRecord]:
+        del self, args
+        return tmp_path, trace
+
+    def fake_intervene(self: object, *args: object) -> tuple[Path, TraceRecord]:
+        del self, args
+        return tmp_path, trace
+
+    monkeypatch.setattr("sieve.cli.TaskRunner.run", fake_task_run)
+    monkeypatch.setattr("sieve.cli.ResumeRunner.resume", fake_resume)
+    monkeypatch.setattr("sieve.cli.InterventionRunner.run", fake_intervene)
+    commands = (
+        ["sieve", "run", "--task", "SIEVE-T1", "--live"],
+        [
+            "sieve",
+            "resume",
+            "--baseline-run-dir",
+            str(baseline_dir),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--live",
+        ],
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_dir),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--type",
+            "INT-01",
+            "--live",
+        ],
+    )
+    for command in commands:
+        monkeypatch.setattr("sys.argv", command)
+        cli.main()
+
+    assert capsys.readouterr().out.count("run_id=") == 3

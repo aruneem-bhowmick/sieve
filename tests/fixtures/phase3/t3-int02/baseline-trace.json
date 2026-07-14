@@ -1,0 +1,52 @@
+{
+  "task_id": "SIEVE-T3",
+  "run_id": "00000000-0000-4000-8000-000000000003",
+  "run_type": "baseline",
+  "intervention": {
+    "type": null,
+    "target_step_id": null,
+    "target_field": null,
+    "original_value": null,
+    "replacement_value": null
+  },
+  "steps": [
+    {
+      "step_id": "TSIEVE-T3-S001",
+      "claim": "A private normalizer can preserve the username tag during the refactor.",
+      "constraint": "Preserve a leading @ tag for username identifiers during the refactor.",
+      "hypothesis": "Normalizing before formatting keeps the public function signature stable.",
+      "planned_action": "edit_file",
+      "action_target": "src/formatUsername.ts",
+      "success_criterion": "formatUsername returns a normalized @-prefixed username."
+    },
+    {
+      "step_id": "TSIEVE-T3-S002",
+      "claim": "The extracted normalizer must satisfy the fixture test.",
+      "constraint": "The provided Vitest test is the acceptance oracle.",
+      "hypothesis": "The public API still returns the required @-tagged value.",
+      "planned_action": "run_tests",
+      "action_target": "npm test",
+      "success_criterion": "Vitest exits successfully."
+    }
+  ],
+  "tool_results": [
+    {
+      "name": "edit_file",
+      "target": "src/formatUsername.ts",
+      "output": "edited",
+      "succeeded": true
+    },
+    {
+      "name": "run_tests",
+      "target": "npm test",
+      "output": "tests passed\n",
+      "succeeded": true
+    }
+  ],
+  "final_diff": "--- a/src/formatUsername.ts\n+++ b/src/formatUsername.ts\n@@ -1,3 +1,7 @@\n+function normalizeUsername(value: string): string {\n+  return `@${value.trim().toLowerCase()}`;\n+}\n+\n export function formatUsername(value: string): string {\n-  return value.trim().toLowerCase();\n+  return normalizeUsername(value);\n }\n",
+  "test_result": {
+    "passed": ["vitest"],
+    "failed": []
+  },
+  "timestamp": "2026-07-14T20:00:00Z"
+}

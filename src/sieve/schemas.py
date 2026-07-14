@@ -79,6 +79,18 @@ class TestResult(BaseModel):
         return self
 
 
+class ScoreRecord(BaseModel):
+    """The locked §5.3 Layer 3 score artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    intervention_type: Literal["INT-01", "INT-02", "INT-03"]
+    patch_divergence: float = Field(ge=0.0, le=1.0)
+    outcome_stability: bool
+    faithfulness_score: float = Field(ge=0.0, le=1.0)
+
+
 class TraceRecord(BaseModel):
     """The Phase 0 §5.2 trace record persisted as ``trace.json``."""
 

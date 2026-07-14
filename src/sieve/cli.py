@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from uuid import UUID
 
 from sieve.agent import (
     CodingAgentBackend,
@@ -16,6 +17,7 @@ from sieve.interventions import ClaimDeletion, ConstraintSwap, InterventionRunne
 from sieve.resume import ResumeRunner
 from sieve.runner import TaskRunner
 from sieve.schemas import TraceRecord
+from sieve.scoring import ScoreRunner
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--live", action="store_true", help="use the OpenAI Responses API"
     )
     intervene.add_argument("--model", default="gpt-5.6")
+    score = subparsers.add_parser("score", help="score one baseline/perturbed pair")
+    score.add_argument("run_id_baseline", type=UUID)
+    score.add_argument("run_id_perturbed", type=UUID)
+    score.add_argument("--runs-dir", type=Path, default=Path("runs"))
     return parser
 
 
@@ -114,6 +120,12 @@ def main() -> None:
             intervention,
             intervention_backend,
         )
+    elif args.command == "score":
+        score_path, _ = ScoreRunner(root / args.runs_dir).score(
+            args.run_id_baseline, args.run_id_perturbed
+        )
+        print(f"score={score_path}")
+        return
     else:
         raise ValueError(f"unsupported command: {args.command}")
     print(f"run_id={trace.run_id}")
