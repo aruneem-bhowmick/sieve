@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from sieve.schemas import PlannedAction, StructuredReasoningStep
+from sieve.schemas import PlannedAction, StructuredReasoningStep, ToolResultRecord
 
 if TYPE_CHECKING:
     from sieve.replay import ReplayContextItem
@@ -44,19 +43,11 @@ class AgentTurn(BaseModel):
         return self
 
 
-@dataclass(frozen=True)
-class ToolResult:
-    name: PlannedAction
-    target: str
-    output: str
-    succeeded: bool
-
-
 class CodingAgentBackend(Protocol):
     """Backend interface used by the runner for one agent turn at a time."""
 
     def next_turn(
-        self, task_prompt: str, history: list[ToolResult]
+        self, task_prompt: str, history: list[ToolResultRecord]
     ) -> AgentTurn | None:
         """Return one validated turn or ``None`` when the task is complete."""
         ...
@@ -69,7 +60,7 @@ class ResumableCodingAgentBackend(CodingAgentBackend, Protocol):
         self,
         task_prompt: str,
         replay_context: list[ReplayContextItem],
-        history: list[ToolResult],
+        history: list[ToolResultRecord],
     ) -> AgentTurn | None:
         """Return one regenerated turn or ``None`` when the task is complete."""
         ...
@@ -128,7 +119,7 @@ class OpenAIResponsesBackend:
         self._model = model
 
     def next_turn(
-        self, task_prompt: str, history: list[ToolResult]
+        self, task_prompt: str, history: list[ToolResultRecord]
     ) -> AgentTurn | None:
         """Request and validate one structured reasoning/action pair."""
         input_items: list[dict[str, str]] = [
@@ -149,7 +140,7 @@ class OpenAIResponsesBackend:
         self,
         task_prompt: str,
         replay_context: list[ReplayContextItem],
-        history: list[ToolResult],
+        history: list[ToolResultRecord],
     ) -> AgentTurn | None:
         """Request one schema-constrained turn after fixed replay context."""
         input_items: list[dict[str, str]] = [
@@ -171,7 +162,7 @@ class OpenAIResponsesBackend:
         return self._request_turn(input_items)
 
     @staticmethod
-    def _history_items(history: list[ToolResult]) -> list[dict[str, str]]:
+    def _history_items(history: list[ToolResultRecord]) -> list[dict[str, str]]:
         """Serialize prior local tool results for the Responses API."""
         return [
             {
@@ -242,7 +233,7 @@ class RecordedBackend:
         )
 
     def next_turn(
-        self, task_prompt: str, history: list[ToolResult]
+        self, task_prompt: str, history: list[ToolResultRecord]
     ) -> AgentTurn | None:
         """Return the next recorded turn, or completion when the sequence ends."""
         del task_prompt, history
@@ -256,7 +247,7 @@ class RecordedBackend:
         self,
         task_prompt: str,
         replay_context: list[ReplayContextItem],
-        history: list[ToolResult],
+        history: list[ToolResultRecord],
     ) -> AgentTurn | None:
         """Return the next deterministic resumption turn."""
         del replay_context

@@ -15,7 +15,7 @@ from sieve.agent import (
     response_tools,
 )
 from sieve.replay import ReplayContextItem
-from sieve.schemas import PlannedAction, StructuredReasoningStep
+from sieve.schemas import PlannedAction, StructuredReasoningStep, ToolResultRecord
 
 
 def test_recorded_backend_parses_t1_turns() -> None:
@@ -158,7 +158,14 @@ def test_openai_resume_turn_sends_fixed_context_before_history_and_uses_response
     turn = backend.resume_turn(
         "task",
         [fixed],
-        [agent.ToolResult(PlannedAction.READ_FILE, "task.md", "contents", True)],
+        [
+            ToolResultRecord(
+                name=PlannedAction.READ_FILE,
+                target="task.md",
+                output="contents",
+                succeeded=True,
+            )
+        ],
     )
     assert turn is not None
     assert fake.request is not None
@@ -177,3 +184,24 @@ def test_recorded_backend_resume_starts_at_requested_step() -> None:
     turn = backend.resume_turn("task", [], [])
     assert turn is not None
     assert turn.step.step_id == "TSIEVE-T1-S002"
+
+
+def test_openai_history_serializes_tool_result_record_verbatim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeOpenAI([])
+    monkeypatch.setattr(agent, "OpenAI", lambda: fake)
+    result = ToolResultRecord(
+        name=PlannedAction.RUN_TESTS,
+        target="npm test",
+        output="stdout\nstderr",
+        succeeded=False,
+    )
+
+    assert OpenAIResponsesBackend("test-model").next_turn("task", [result]) is None
+    assert fake.request is not None
+    history_content = fake.request["input"][-1]["content"]
+    assert '"name": "run_tests"' in history_content
+    assert '"target": "npm test"' in history_content
+    assert '"output": "stdout\\nstderr"' in history_content
+    assert '"succeeded": false' in history_content

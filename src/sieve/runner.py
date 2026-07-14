@@ -8,9 +8,15 @@ import subprocess
 from pathlib import Path
 from uuid import uuid4
 
-from sieve.agent import AgentTurn, CodingAgentBackend, ToolResult
+from sieve.agent import AgentTurn, CodingAgentBackend
 from sieve.persistence import create_run_directory, write_trace
-from sieve.schemas import InterventionMetadata, PlannedAction, TestResult, TraceRecord
+from sieve.schemas import (
+    InterventionMetadata,
+    PlannedAction,
+    TestResult,
+    ToolResultRecord,
+    TraceRecord,
+)
 
 
 class TaskRunner:
@@ -37,16 +43,16 @@ class TaskRunner:
         checkpoints.mkdir()
         shutil.copytree(workspace, checkpoints / "initial")
         prompt = (workspace / "task.md").read_text(encoding="utf-8")
-        history: list[ToolResult] = []
+        tool_results: list[ToolResultRecord] = []
         steps = []
         test_result = TestResult(passed=[], failed=[])
 
         for _ in range(self._max_steps):
-            turn = backend.next_turn(prompt, history)
+            turn = backend.next_turn(prompt, tool_results)
             if turn is None:
                 break
             result, latest_tests = self._execute_turn(workspace, turn)
-            history.append(result)
+            tool_results.append(result)
             steps.append(turn.step)
             if result.succeeded:
                 shutil.copytree(workspace, checkpoints / turn.step.step_id)
@@ -64,6 +70,7 @@ class TaskRunner:
             run_type="baseline",
             intervention=InterventionMetadata(),
             steps=steps,
+            tool_results=tool_results,
             final_diff=final_diff,
             test_result=test_result,
         )
@@ -73,18 +80,28 @@ class TaskRunner:
 
     def _execute_turn(
         self, workspace: Path, turn: AgentTurn
-    ) -> tuple[ToolResult, TestResult | None]:
+    ) -> tuple[ToolResultRecord, TestResult | None]:
         """Execute one validated local action and capture its observable result."""
         target = _workspace_path(workspace, turn.action.target)
         if turn.action.name == PlannedAction.READ_FILE:
             output = target.read_text(encoding="utf-8")
-            result = ToolResult(turn.action.name, turn.action.target, output, True)
+            result = ToolResultRecord(
+                name=turn.action.name,
+                target=turn.action.target,
+                output=output,
+                succeeded=True,
+            )
             return result, None
         if turn.action.name == PlannedAction.EDIT_FILE:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(turn.action.content or "", encoding="utf-8")
             return (
-                ToolResult(turn.action.name, turn.action.target, "edited", True),
+                ToolResultRecord(
+                    name=turn.action.name,
+                    target=turn.action.target,
+                    output="edited",
+                    succeeded=True,
+                ),
                 None,
             )
         if turn.action.name == PlannedAction.SEARCH:
@@ -94,8 +111,11 @@ class TaskRunner:
                 if path.is_file() and _file_contains(path, turn.action.target)
             ]
             return (
-                ToolResult(
-                    turn.action.name, turn.action.target, "\n".join(matches), True
+                ToolResultRecord(
+                    name=turn.action.name,
+                    target=turn.action.target,
+                    output="\n".join(matches),
+                    succeeded=True,
                 ),
                 None,
             )
@@ -109,11 +129,11 @@ class TaskRunner:
                 check=False,
             )
             output = completed.stdout + completed.stderr
-            result = ToolResult(
-                turn.action.name,
-                turn.action.target,
-                output,
-                completed.returncode == 0,
+            result = ToolResultRecord(
+                name=turn.action.name,
+                target=turn.action.target,
+                output=output,
+                succeeded=completed.returncode == 0,
             )
             if turn.action.name == PlannedAction.RUN_TESTS:
                 test_result = TestResult(

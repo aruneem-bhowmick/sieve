@@ -4,9 +4,10 @@ from subprocess import CompletedProcess
 
 import pytest
 
+from sieve import cli
 from sieve.agent import AgentTurn, RecordedBackend, ToolInvocation
 from sieve.runner import TaskRunner, _workspace_path, unified_directory_diff
-from sieve.schemas import PlannedAction, StructuredReasoningStep
+from sieve.schemas import PlannedAction, StructuredReasoningStep, TraceRecord
 
 
 def test_recorded_t1_run_writes_valid_trace(
@@ -23,6 +24,9 @@ def test_recorded_t1_run_writes_valid_trace(
     saved = json.loads((run_dir / "trace.json").read_text(encoding="utf-8"))
     assert saved["task_id"] == "SIEVE-T1"
     assert trace.test_result.passed == ["vitest"]
+    assert len(trace.tool_results) == len(trace.steps) == 2
+    assert trace.tool_results[1].name == PlannedAction.RUN_TESTS
+    assert trace.tool_results[1].target == "npm test"
     assert "return name?.trim()" in trace.final_diff
     assert (run_dir / "checkpoints" / "initial" / "src" / "normalizeName.ts").is_file()
     checkpoint = run_dir / "checkpoints" / "TSIEVE-T1-S001" / "src" / "normalizeName.ts"
@@ -67,3 +71,140 @@ def test_runner_enforces_step_budget(tmp_path: Path) -> None:
         TaskRunner(Path.cwd(), tmp_path, max_steps=1).run(
             "SIEVE-T1", RecordedBackend([turn])
         )
+
+
+def test_runner_persists_step_result_pairs_through_canonical_write_trace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    root = Path.cwd()
+    run_dir, _ = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+
+    saved = json.loads((run_dir / "trace.json").read_text(encoding="utf-8"))
+    assert len(saved["steps"]) == len(saved["tool_results"])
+    assert saved["tool_results"][1]["name"] == "run_tests"
+    assert saved["tool_results"][1]["target"] == saved["steps"][1]["action_target"]
+
+
+def test_recorded_sieve_t1_baseline_writes_raw_result_pair_for_each_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    root = Path.cwd()
+    run_dir, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+
+    assert (run_dir / "trace.json").is_file()
+    assert [(result.output, result.succeeded) for result in trace.tool_results] == [
+        ("edited", True),
+        ("tests passed\n", True),
+    ]
+
+
+def test_recorded_sieve_t1_baseline_writes_raw_result_pair_for_each_step_system(
+    tmp_path: Path,
+) -> None:
+    root = Path.cwd()
+    run_dir, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+
+    saved = TraceRecord.model_validate_json(
+        (run_dir / "trace.json").read_text(encoding="utf-8")
+    )
+    assert len(saved.steps) == len(saved.tool_results) == 2
+    assert saved.tool_results[1].name == PlannedAction.RUN_TESTS
+    assert saved.tool_results[1].target == "npm test"
+    assert trace.tool_results == saved.tool_results
+
+
+def test_tool_result_pairing_smoke_recorded_sieve_t1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    root = Path.cwd()
+    _, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+    assert len(trace.tool_results) == len(trace.steps) == 2
+
+
+def test_persisted_tool_result_pair_order_matches_step_action_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    root = Path.cwd()
+    _, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+    assert all(
+        step.planned_action == result.name and step.action_target == result.target
+        for step, result in zip(trace.steps, trace.tool_results, strict=True)
+    )
+
+
+def test_recorded_sieve_t1_tool_result_pairs_match_phase2_golden_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    root = Path.cwd()
+    _, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+    expected = json.loads(
+        (root / "tests/fixtures/phase2/SIEVE-T1-tool-result-pairs.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert [result.model_dump(mode="json") for result in trace.tool_results] == expected
+
+
+def test_cli_run_trace_contains_raw_tool_result_pairs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="tests passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "run",
+            "--task",
+            "SIEVE-T1",
+            "--runs-dir",
+            str(tmp_path / "runs"),
+        ],
+    )
+
+    cli.main()
+
+    trace_path = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    trace = TraceRecord.model_validate_json(trace_path.read_text(encoding="utf-8"))
+    assert len(trace.tool_results) == len(trace.steps) == 2
+    assert trace.tool_results[1].target == "npm test"
