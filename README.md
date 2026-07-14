@@ -2,7 +2,7 @@
 
 Causal CoT Faithfulness Auditor for Codex (OpenAI Build Week).
 
-## Phase 0
+## Quick Start
 
 Install the Python harness and TypeScript fixture dependencies:
 
@@ -30,3 +30,8 @@ python -m ruff check .
 python -m black --check .
 python -m mypy --strict .
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for delivered capabilities and the planned
+development roadmap. See the
+[implementation guide](docs/workflow/SIEVE-IMPLEMENTATION-GUIDE.md) for the
+ideator/executor workflow and reusable prompt templates.
