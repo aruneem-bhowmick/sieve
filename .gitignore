@@ -7,3 +7,4 @@ node_modules/
 runs/
 .verification-runs/
 *.pyc
+*.egg-info/
