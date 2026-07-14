@@ -1,0 +1,21 @@
+# Project-scoped Codex config for Sieve.
+# See docs/workflow/IDEATOR-EXECUTOR-WORKFLOW.md for how these settings are used.
+
+[agents]
+# Widest wave observed across Sieve's Build-Week phases (Phase 4) tops out
+# well under this; raise it only if a later phase's wave plan needs more
+# concurrent executors than this allows.
+max_threads = 6
+
+# Sieve's ideator/executor split is exactly one level deep: sieve_ideator
+# (or you) spawns sieve_executor instances; executors never spawn their own
+# subagents. Keep this at 1 — raising it lets an executor recursively fan
+# out, which breaks the "one prompt, one executor" isolation guarantee this
+# whole design depends on.
+max_depth = 1
+
+# Per-worker timeout for spawn_agents_on_csv batches. Sieve prompts are
+# scoped to be completable well within this; if a wave's workers are
+# routinely timing out, that's a signal the phase plan split requirements
+# too coarsely, not a reason to raise this number first.
+job_max_runtime_seconds = 1800

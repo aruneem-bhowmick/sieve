@@ -1,0 +1,10 @@
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.ruff_cache/
+node_modules/
+runs/
+.verification-runs/
+*.pyc
+*.egg-info/
