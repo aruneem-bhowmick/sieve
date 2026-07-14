@@ -73,6 +73,28 @@ def test_runner_enforces_step_budget(tmp_path: Path) -> None:
         )
 
 
+def test_runner_command_execution_uses_utf8_with_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args
+        captured.update(kwargs)
+        return CompletedProcess("npm test", 0, stdout="Vitest ✓\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", run)
+    root = Path.cwd()
+    _, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+
+    assert captured["text"] is True
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
+    assert trace.tool_results[-1].output == "Vitest ✓\n"
+
+
 def test_runner_persists_step_result_pairs_through_canonical_write_trace(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
