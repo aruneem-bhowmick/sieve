@@ -52,16 +52,17 @@ Declared write set:
 
 | Prompt | Writes |
 |---|---|
-| SIV-INT-006 | `src/sieve/interventions.py`, `src/sieve/cli.py`, `tasks/SIEVE-T1/intervention_constraints.json`, `tasks/SIEVE-T1/recorded_int02_run.json`, `tasks/SIEVE-T3/package.json`, `tasks/SIEVE-T3/task.md`, `tasks/SIEVE-T3/src/formatUsername.ts`, `tasks/SIEVE-T3/tests/formatUsername.test.ts`, `tasks/SIEVE-T3/intervention_constraints.json`, `tasks/SIEVE-T3/recorded_run.json`, `tasks/SIEVE-T3/recorded_int01_run.json`, `tasks/SIEVE-T3/recorded_int02_run.json`, `tests/test_interventions.py`, `tests/test_cli.py`, `tests/fixtures/phase2/SIEVE-T1-int02-perturbed-trace.json`, `tests/fixtures/phase2/SIEVE-T3-int01-perturbed-trace.json`, `tests/fixtures/phase2/SIEVE-T3-int02-perturbed-trace.json` |
+| SIV-INT-006 | `src/sieve/interventions.py`, `src/sieve/cli.py`, `src/sieve/runner.py`, `tasks/SIEVE-T1/intervention_constraints.json`, `tasks/SIEVE-T1/recorded_int02_run.json`, `tasks/SIEVE-T3/package.json`, `tasks/SIEVE-T3/task.md`, `tasks/SIEVE-T3/src/formatUsername.ts`, `tasks/SIEVE-T3/tests/formatUsername.test.ts`, `tasks/SIEVE-T3/intervention_constraints.json`, `tasks/SIEVE-T3/recorded_run.json`, `tasks/SIEVE-T3/recorded_int01_run.json`, `tasks/SIEVE-T3/recorded_int02_run.json`, `tests/test_interventions.py`, `tests/test_cli.py`, `tests/test_runner.py`, `tests/fixtures/phase2/SIEVE-T1-int02-perturbed-trace.json`, `tests/fixtures/phase2/SIEVE-T3-int01-perturbed-trace.json`, `tests/fixtures/phase2/SIEVE-T3-int02-perturbed-trace.json` |
 
 Mechanical pairwise comparison: one prompt has zero siblings, therefore zero write-set pairs and no possible in-wave intersection. It depends on Wave 2 because it extends the generic intervention runner and `sieve intervene` command instead of creating competing implementations.
 
 Required environment preflight, before an executor reports this wave complete:
 
 ```text
-From the repository root, run npm ci using the committed package-lock.json.
-Then run npm --prefix tasks/SIEVE-T3 test.
-If npm ci reports registry or proxy certificate validation failure, stop and report that host trust-chain error. Do not disable TLS verification, change npm registry settings, or create a task-local dependency lockfile.
+From the repository root, run npm ci using the committed package-lock.json. On a Node 22 Windows host that trusts the registry certificate through the Windows certificate store, but not Node's bundled store, first set $env:NODE_USE_SYSTEM_CA = '1' for the current PowerShell process; this keeps TLS verification enabled and makes no persistent npm configuration change.
+Then run python -m sieve.cli run --task SIEVE-T3 --runs-dir .verification-runs/phase2/t3-baseline.
+The pristine SIEVE-T3 fixture intentionally fails; its recorded baseline edits the isolated workspace before executing npm test.
+If npm ci still reports registry or proxy certificate validation failure, stop and report that host trust-chain error. Do not disable TLS verification, change npm registry settings, or create a task-local dependency lockfile.
 ```
 
 Executor fan-out invocation:
@@ -78,7 +79,7 @@ Spawn one sieve_executor for docs/prompts/phase-2/SIV-INT-006-constraint-swap.md
 | 2 | none | no pairs exist | Disjoint |
 | 3 | none | no pairs exist | Disjoint |
 
-The widest wave has one executor. Cross-wave intersections are intentional dependencies: Wave 1 and Wave 2 both write `src/sieve/agent.py` and `tests/test_agent.py`; Wave 2 and Wave 3 both write `src/sieve/interventions.py`, `src/sieve/cli.py`, `tests/test_interventions.py`, and `tests/test_cli.py`. No such intersection occurs within a wave.
+The widest wave has one executor. Cross-wave intersections are intentional dependencies: Wave 1 and Wave 2 both write `src/sieve/agent.py` and `tests/test_agent.py`; Wave 1 and Wave 3 both write `src/sieve/runner.py` and `tests/test_runner.py`; Wave 2 and Wave 3 both write `src/sieve/interventions.py`, `src/sieve/cli.py`, `tests/test_interventions.py`, and `tests/test_cli.py`. No such intersection occurs within a wave.
 
 ## Checkpoint after every wave
 

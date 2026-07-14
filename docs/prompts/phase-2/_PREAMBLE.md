@@ -102,10 +102,10 @@ For Wave 3, the root dependency bootstrap is a mandatory execution preflight, no
 
 ```powershell
 npm ci
-npm --prefix tasks/SIEVE-T3 test
+python -m sieve.cli run --task SIEVE-T3 --runs-dir .verification-runs/phase2/t3-baseline
 ```
 
-If `npm ci` fails because the host cannot validate its configured registry or proxy certificate, stop before reporting Wave 3 complete. Restore the host trust chain or use a trusted network with the same committed lockfile; do not set `strict-ssl=false`, disable TLS verification, replace the lockfile, or add per-task dependency locks.
+The pristine task fixtures intentionally contain the bug or incomplete implementation, so never use `npm --prefix tasks/SIEVE-T3 test` as the pre-fix acceptance command. The recorded baseline run applies its recorded edit inside an isolated workspace and then executes that workspace’s test command. On a Node 22 Windows host whose registry certificate is trusted by the Windows certificate store but not Node's bundled store, set `$env:NODE_USE_SYSTEM_CA = '1'` in the current PowerShell process before `npm ci`. This preserves TLS validation and does not persist an npm configuration change. If that still fails, stop before reporting Wave 3 complete: restore the host trust chain or use a trusted network with the same committed lockfile; never set `strict-ssl=false`, disable TLS verification, replace the lockfile, or add per-task dependency locks.
 
 ## Full test taxonomy — verbatim from SIEVE-SPEC.md §10
 
