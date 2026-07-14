@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,7 +16,7 @@ from sieve.agent import (
     response_tools,
 )
 from sieve.replay import ReplayContextItem
-from sieve.schemas import PlannedAction, StructuredReasoningStep
+from sieve.schemas import PlannedAction, StructuredReasoningStep, ToolResultRecord
 
 
 def test_recorded_backend_parses_t1_turns() -> None:
@@ -158,7 +159,14 @@ def test_openai_resume_turn_sends_fixed_context_before_history_and_uses_response
     turn = backend.resume_turn(
         "task",
         [fixed],
-        [agent.ToolResult(PlannedAction.READ_FILE, "task.md", "contents", True)],
+        [
+            ToolResultRecord(
+                name=PlannedAction.READ_FILE,
+                target="task.md",
+                output="contents",
+                succeeded=True,
+            )
+        ],
     )
     assert turn is not None
     assert fake.request is not None
@@ -177,3 +185,89 @@ def test_recorded_backend_resume_starts_at_requested_step() -> None:
     turn = backend.resume_turn("task", [], [])
     assert turn is not None
     assert turn.step.step_id == "TSIEVE-T1-S002"
+
+
+def test_openai_history_serializes_tool_result_record_verbatim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeOpenAI([])
+    monkeypatch.setattr(agent, "OpenAI", lambda: fake)
+    result = ToolResultRecord(
+        name=PlannedAction.RUN_TESTS,
+        target="npm test",
+        output="stdout\nstderr",
+        succeeded=False,
+    )
+
+    assert OpenAIResponsesBackend("test-model").next_turn("task", [result]) is None
+    assert fake.request is not None
+    history_content = fake.request["input"][-1]["content"]
+    assert '"name": "run_tests"' in history_content
+    assert '"target": "npm test"' in history_content
+    assert '"output": "stdout\\nstderr"' in history_content
+    assert '"succeeded": false' in history_content
+
+
+def test_openai_intervention_turn_sends_fixed_prefix_and_exact_edited_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    edited = StructuredReasoningStep(
+        step_id="TSIEVE-T1-S001",
+        claim="",
+        constraint="constraint",
+        hypothesis="hypothesis",
+        planned_action=PlannedAction.READ_FILE,
+        action_target="src/file.ts",
+        success_criterion="criterion",
+    )
+    output = [
+        SimpleNamespace(
+            type="function_call",
+            name="emit_step",
+            arguments=edited.model_dump_json(),
+        ),
+        SimpleNamespace(
+            type="function_call",
+            name="read_file",
+            arguments='{"target":"src/file.ts"}',
+        ),
+    ]
+    fake = FakeOpenAI(output)
+    monkeypatch.setattr(agent, "OpenAI", lambda: fake)
+    fixed = ReplayContextItem("TSIEVE-T1-S000", '{"step_id":"TSIEVE-T1-S000"}')
+    turn = OpenAIResponsesBackend("test-model").intervention_turn(
+        "task", [fixed], edited, []
+    )
+    assert turn is not None
+    assert fake.request is not None
+    contents = [item["content"] for item in fake.request["input"]]
+    edited_content = next(content for content in contents if "edited_step" in content)
+    assert contents.index(fixed.content) < contents.index(edited_content)
+    assert json.loads(edited_content)["edited_step"] == edited.model_dump(mode="json")
+    assert fake.request["tools"] == response_tools()
+
+
+def test_recorded_intervention_turn_rejects_unedited_step() -> None:
+    original = StructuredReasoningStep(
+        step_id="TSIEVE-T1-S001",
+        claim="original",
+        constraint="constraint",
+        hypothesis="hypothesis",
+        planned_action=PlannedAction.READ_FILE,
+        action_target="src/file.ts",
+        success_criterion="criterion",
+    )
+    backend = RecordedBackend(
+        [
+            AgentTurn(
+                step=original,
+                action=ToolInvocation(
+                    name=PlannedAction.READ_FILE, target="src/file.ts"
+                ),
+            )
+        ]
+    )
+    with pytest.raises(ValueError, match="does not match"):
+        backend.intervention_turn(
+            "task", [], original.model_copy(update={"claim": ""}), []
+        )

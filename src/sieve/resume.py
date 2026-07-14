@@ -9,7 +9,6 @@ from uuid import uuid4
 from sieve.agent import (
     AgentTurn,
     ResumableCodingAgentBackend,
-    ToolResult,
 )
 from sieve.budget import StepBudget
 from sieve.persistence import create_run_directory, write_trace
@@ -60,12 +59,12 @@ class ResumeRunner:
         prompt = (workspace / "task.md").read_text(encoding="utf-8")
         budget = StepBudget(self._max_resumed_steps)
         executor = TaskRunner(self._repo_root, self._runs_dir)
-        history: list[ToolResult] = []
+        tool_results = list(baseline.tool_results[: len(replay_context)])
         steps = list(baseline.steps[: len(replay_context)])
         test_result = TestResult(passed=[], failed=[])
 
         while True:
-            turn = backend.resume_turn(prompt, replay_context, history)
+            turn = backend.resume_turn(prompt, replay_context, tool_results)
             if turn is None:
                 break
             self._validate_generated_step(
@@ -73,7 +72,7 @@ class ResumeRunner:
             )
             budget.consume()
             result, latest_tests = executor._execute_turn(workspace, turn)
-            history.append(result)
+            tool_results.append(result)
             steps.append(turn.step)
             if latest_tests is not None:
                 test_result = latest_tests
@@ -85,6 +84,7 @@ class ResumeRunner:
             run_type="baseline",
             intervention=InterventionMetadata(),
             steps=steps,
+            tool_results=tool_results,
             final_diff=final_diff,
             test_result=test_result,
         )

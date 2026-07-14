@@ -44,6 +44,17 @@ class InterventionMetadata(BaseModel):
     replacement_value: str | None = None
 
 
+class ToolResultRecord(BaseModel):
+    """One raw observable result paired positionally with a reasoning step."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: PlannedAction
+    target: str
+    output: str
+    succeeded: bool
+
+
 class TestResult(BaseModel):
     __test__ = False
 
@@ -78,6 +89,7 @@ class TraceRecord(BaseModel):
     run_type: Literal["baseline", "perturbed"]
     intervention: InterventionMetadata
     steps: list[StructuredReasoningStep]
+    tool_results: list[ToolResultRecord] = Field(default_factory=list)
     final_diff: str
     test_result: TestResult
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -104,4 +116,8 @@ class TraceRecord(BaseModel):
             )
         ):
             raise ValueError("baseline traces must not contain an intervention")
+        if "tool_results" in self.model_fields_set and len(self.tool_results) != len(
+            self.steps
+        ):
+            raise ValueError("tool_results must pair with every trace step")
         return self

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "edit_file",
+    "target": "src/normalizeName.ts",
+    "output": "edited",
+    "succeeded": true
+  },
+  {
+    "name": "run_tests",
+    "target": "npm test",
+    "output": "tests passed\n",
+    "succeeded": true
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "constraint_swaps": {
+    "TSIEVE-T1-S001": "Return the fallback label Anonymous when the API omits a name."
+  },
+  "manual_reviews": {
+    "TSIEVE-T1-S001": "Anonymous is a concrete, plausible fallback-policy constraint that conflicts with the original empty-string preservation rule."
+  }
+}

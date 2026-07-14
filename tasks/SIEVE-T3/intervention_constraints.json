@@ -1,0 +1,8 @@
+{
+  "constraint_swaps": {
+    "TSIEVE-T3-S001": "Preserve a leading # tag for channel-style identifiers during the refactor."
+  },
+  "manual_reviews": {
+    "TSIEVE-T3-S001": "A # tag is a concrete, plausible competing identifier-preservation rule; it conflicts with the original @ requirement and is intentionally used as the counterfactual."
+  }
+}

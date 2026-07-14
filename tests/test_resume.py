@@ -12,7 +12,6 @@ from sieve.agent import (
     RecordedBackend,
     ResumableCodingAgentBackend,
     ToolInvocation,
-    ToolResult,
 )
 from sieve.budget import StepBudgetExceeded
 from sieve.replay import ReplayContextItem
@@ -22,6 +21,7 @@ from sieve.schemas import (
     InterventionMetadata,
     PlannedAction,
     StructuredReasoningStep,
+    ToolResultRecord,
     TraceRecord,
 )
 
@@ -62,7 +62,7 @@ class CapturingRecordedBackend(RecordedBackend):
         self,
         task_prompt: str,
         replay_context: list[ReplayContextItem],
-        history: list[ToolResult],
+        history: list[ToolResultRecord],
     ) -> AgentTurn | None:
         self.contexts.append(replay_context)
         return self.next_turn(task_prompt, history)
@@ -222,3 +222,19 @@ def test_resume_runner_enforces_budget(
         ResumeRunner(Path.cwd(), tmp_path / "resumed", 1).resume(
             baseline, baseline_dir, "TSIEVE-T1-S002", backend
         )
+
+
+def test_resume_persists_step_result_pairs_through_canonical_write_trace(
+    tmp_path: Path, recorded_baseline: tuple[Path, TraceRecord]
+) -> None:
+    baseline_dir, baseline = recorded_baseline
+    run_dir, _ = ResumeRunner(Path.cwd(), tmp_path / "resumed").resume(
+        baseline, baseline_dir, "TSIEVE-T1-S002", resume_backend()
+    )
+
+    saved = TraceRecord.model_validate_json(
+        (run_dir / "trace.json").read_text(encoding="utf-8")
+    )
+    assert len(saved.steps) == len(saved.tool_results)
+    assert saved.tool_results[1].name.value == "run_tests"
+    assert saved.tool_results[1].target == saved.steps[1].action_target
