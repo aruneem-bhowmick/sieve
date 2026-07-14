@@ -66,3 +66,43 @@ def test_cli_resume_writes_new_trace_json(
     cli.main()
     resumed_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
     assert TraceRecord.model_validate_json(resumed_trace.read_text(encoding="utf-8"))
+
+
+def test_cli_intervene_int01_creates_perturbed_trace(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    from subprocess import CompletedProcess
+
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    baseline_runs = tmp_path / "baseline-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sieve", "run", "--task", "SIEVE-T1", "--runs-dir", str(baseline_runs)],
+    )
+    cli.main()
+    baseline_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    perturbed_runs = tmp_path / "perturbed-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_trace.parent),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--type",
+            "INT-01",
+            "--runs-dir",
+            str(perturbed_runs),
+        ],
+    )
+    cli.main()
+    perturbed_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    trace = TraceRecord.model_validate_json(perturbed_trace.read_text(encoding="utf-8"))
+    assert trace.run_type == "perturbed"
+    assert trace.intervention.type == "INT-01"

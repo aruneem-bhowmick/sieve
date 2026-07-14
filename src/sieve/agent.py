@@ -66,6 +66,20 @@ class ResumableCodingAgentBackend(CodingAgentBackend, Protocol):
         ...
 
 
+class InterventionCodingAgentBackend(ResumableCodingAgentBackend, Protocol):
+    """Backend interface for an intervention's edited first generated turn."""
+
+    def intervention_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        edited_step: StructuredReasoningStep,
+        history: list[ToolResultRecord],
+    ) -> AgentTurn | None:
+        """Return the first turn, whose emitted step must equal ``edited_step``."""
+        ...
+
+
 def _tool_schema(
     name: PlannedAction, properties: dict[str, object]
 ) -> dict[str, object]:
@@ -161,6 +175,41 @@ class OpenAIResponsesBackend:
         input_items.extend(self._history_items(history))
         return self._request_turn(input_items)
 
+    def intervention_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        edited_step: StructuredReasoningStep,
+        history: list[ToolResultRecord],
+    ) -> AgentTurn | None:
+        """Request the edited target step followed by one matching local action."""
+        input_items: list[dict[str, str]] = [
+            {
+                "role": "developer",
+                "content": (
+                    "You are resuming a coding task after an intervention. Fixed "
+                    "prior reasoning is context. Emit exactly the supplied edited "
+                    "step before one matching local coding tool; do not restore its "
+                    "original value. Return no prose."
+                ),
+            },
+            {"role": "user", "content": task_prompt},
+        ]
+        input_items.extend(
+            {"role": "user", "content": item.content} for item in replay_context
+        )
+        input_items.append(
+            {
+                "role": "user",
+                "content": json.dumps({"edited_step": edited_step.model_dump()}),
+            }
+        )
+        input_items.extend(self._history_items(history))
+        turn = self._request_turn(input_items)
+        if turn is not None and turn.step != edited_step:
+            raise ValueError("intervention turn must emit the exact edited step")
+        return turn
+
     @staticmethod
     def _history_items(history: list[ToolResultRecord]) -> list[dict[str, str]]:
         """Serialize prior local tool results for the Responses API."""
@@ -252,3 +301,17 @@ class RecordedBackend:
         """Return the next deterministic resumption turn."""
         del replay_context
         return self.next_turn(task_prompt, history)
+
+    def intervention_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        edited_step: StructuredReasoningStep,
+        history: list[ToolResultRecord],
+    ) -> AgentTurn | None:
+        """Return and validate the deterministic first edited target turn."""
+        del replay_context
+        turn = self.next_turn(task_prompt, history)
+        if turn is not None and turn.step != edited_step:
+            raise ValueError("recorded intervention turn does not match edited step")
+        return turn
