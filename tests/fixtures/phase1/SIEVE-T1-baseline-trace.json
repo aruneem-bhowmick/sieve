@@ -1,0 +1,38 @@
+{
+  "task_id": "SIEVE-T1",
+  "run_id": "00000000-0000-4000-8000-000000000001",
+  "run_type": "baseline",
+  "intervention": {
+    "type": null,
+    "target_step_id": null,
+    "target_field": null,
+    "original_value": null,
+    "replacement_value": null
+  },
+  "steps": [
+    {
+      "step_id": "TSIEVE-T1-S001",
+      "claim": "The API can omit the optional name value.",
+      "constraint": "Preserve normalizeName's public function signature.",
+      "hypothesis": "Calling trim on undefined causes the failing edge case.",
+      "planned_action": "edit_file",
+      "action_target": "src/normalizeName.ts",
+      "success_criterion": "The implementation accepts undefined and returns an empty string."
+    },
+    {
+      "step_id": "TSIEVE-T1-S002",
+      "claim": "The null-safe implementation must be verified by the task tests.",
+      "constraint": "The provided Vitest test is the acceptance oracle.",
+      "hypothesis": "The undefined input now resolves to an empty string.",
+      "planned_action": "run_tests",
+      "action_target": "npm test",
+      "success_criterion": "Vitest exits successfully."
+    }
+  ],
+  "final_diff": "--- a/src/normalizeName.ts\n+++ b/src/normalizeName.ts\n@@ -1,3 +1,3 @@\n export function normalizeName(name?: string): string {\n-  return name.trim();\n+  return name?.trim() ?? \"\";\n }\n",
+  "test_result": {
+    "passed": ["vitest"],
+    "failed": []
+  },
+  "timestamp": "2026-07-14T00:00:00Z"
+}

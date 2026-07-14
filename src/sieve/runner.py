@@ -33,6 +33,9 @@ class TaskRunner:
         run_dir = create_run_directory(self._runs_dir, run_id)
         workspace = run_dir / "workspace"
         shutil.copytree(fixture, workspace)
+        checkpoints = run_dir / "checkpoints"
+        checkpoints.mkdir()
+        shutil.copytree(workspace, checkpoints / "initial")
         prompt = (workspace / "task.md").read_text(encoding="utf-8")
         history: list[ToolResult] = []
         steps = []
@@ -45,6 +48,8 @@ class TaskRunner:
             result, latest_tests = self._execute_turn(workspace, turn)
             history.append(result)
             steps.append(turn.step)
+            if result.succeeded:
+                shutil.copytree(workspace, checkpoints / turn.step.step_id)
             if latest_tests is not None:
                 test_result = latest_tests
         else:

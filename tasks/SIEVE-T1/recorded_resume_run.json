@@ -1,0 +1,19 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T1-S002",
+        "claim": "The null-safe implementation must be verified by the task tests.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The undefined input now resolves to an empty string.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {
+        "name": "run_tests",
+        "target": "npm test"
+      }
+    }
+  ]
+}
