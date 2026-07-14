@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -13,6 +14,7 @@ from sieve.agent import (
     ToolInvocation,
     response_tools,
 )
+from sieve.replay import ReplayContextItem
 from sieve.schemas import PlannedAction, StructuredReasoningStep
 
 
@@ -72,9 +74,13 @@ def test_agent_turn_requires_edit_content() -> None:
 
 class FakeOpenAI:
     def __init__(self, output: Sequence[object]) -> None:
-        self.responses = SimpleNamespace(
-            create=lambda **kwargs: SimpleNamespace(output=output, request=kwargs)
-        )
+        self._output = output
+        self.request: dict[str, Any] | None = None
+        self.responses = SimpleNamespace(create=self.create)
+
+    def create(self, **kwargs: Any) -> SimpleNamespace:
+        self.request = kwargs
+        return SimpleNamespace(output=self._output)
 
 
 def test_live_backend_parses_valid_structured_tool_calls(
@@ -123,3 +129,51 @@ def test_live_backend_returns_none_without_tool_calls(
 ) -> None:
     monkeypatch.setattr(agent, "OpenAI", lambda: FakeOpenAI([]))
     assert OpenAIResponsesBackend("test-model").next_turn("task", []) is None
+
+
+def test_openai_resume_turn_sends_fixed_context_before_history_and_uses_response_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = [
+        SimpleNamespace(
+            type="function_call",
+            name="emit_step",
+            arguments=(
+                '{"step_id":"TSIEVE-T1-S002","claim":"claim",'
+                '"constraint":"constraint","hypothesis":"hypothesis",'
+                '"planned_action":"read_file","action_target":"src/file.ts",'
+                '"success_criterion":"criterion"}'
+            ),
+        ),
+        SimpleNamespace(
+            type="function_call",
+            name="read_file",
+            arguments='{"target":"src/file.ts"}',
+        ),
+    ]
+    fake = FakeOpenAI(output)
+    monkeypatch.setattr(agent, "OpenAI", lambda: fake)
+    backend = OpenAIResponsesBackend("test-model")
+    fixed = ReplayContextItem("TSIEVE-T1-S001", '{"step_id":"TSIEVE-T1-S001"}')
+    turn = backend.resume_turn(
+        "task",
+        [fixed],
+        [agent.ToolResult(PlannedAction.READ_FILE, "task.md", "contents", True)],
+    )
+    assert turn is not None
+    assert fake.request is not None
+    request = fake.request
+    contents = [item["content"] for item in request["input"]]
+    assert contents.index(fixed.content) < next(
+        index for index, content in enumerate(contents) if "tool_result" in content
+    )
+    assert request["tools"] == response_tools()
+
+
+def test_recorded_backend_resume_starts_at_requested_step() -> None:
+    backend = RecordedBackend.from_file_from_step(
+        Path("tasks/SIEVE-T1/recorded_run.json"), "TSIEVE-T1-S002"
+    )
+    turn = backend.resume_turn("task", [], [])
+    assert turn is not None
+    assert turn.step.step_id == "TSIEVE-T1-S002"

@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from sieve.schemas import PlannedAction, StructuredReasoningStep
+
+if TYPE_CHECKING:
+    from sieve.replay import ReplayContextItem
 
 
 class ToolInvocation(BaseModel):
@@ -56,6 +59,19 @@ class CodingAgentBackend(Protocol):
         self, task_prompt: str, history: list[ToolResult]
     ) -> AgentTurn | None:
         """Return one validated turn or ``None`` when the task is complete."""
+        ...
+
+
+class ResumableCodingAgentBackend(CodingAgentBackend, Protocol):
+    """Backend interface for a turn regenerated from fixed replay context."""
+
+    def resume_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        history: list[ToolResult],
+    ) -> AgentTurn | None:
+        """Return one regenerated turn or ``None`` when the task is complete."""
         ...
 
 
@@ -126,7 +142,38 @@ class OpenAIResponsesBackend:
             },
             {"role": "user", "content": task_prompt},
         ]
+        input_items.extend(self._history_items(history))
+        return self._request_turn(input_items)
+
+    def resume_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        history: list[ToolResult],
+    ) -> AgentTurn | None:
+        """Request one schema-constrained turn after fixed replay context."""
+        input_items: list[dict[str, str]] = [
+            {
+                "role": "developer",
+                "content": (
+                    "You are resuming a coding task. The following user messages "
+                    "are fixed prior reasoning steps; preserve them as context. "
+                    "Before each action call emit_step, then call exactly one "
+                    "matching local coding tool. Return no prose."
+                ),
+            },
+            {"role": "user", "content": task_prompt},
+        ]
         input_items.extend(
+            {"role": "user", "content": item.content} for item in replay_context
+        )
+        input_items.extend(self._history_items(history))
+        return self._request_turn(input_items)
+
+    @staticmethod
+    def _history_items(history: list[ToolResult]) -> list[dict[str, str]]:
+        """Serialize prior local tool results for the Responses API."""
+        return [
             {
                 "role": "user",
                 "content": json.dumps(
@@ -141,7 +188,10 @@ class OpenAIResponsesBackend:
                 ),
             }
             for result in history
-        )
+        ]
+
+    def _request_turn(self, input_items: list[dict[str, str]]) -> AgentTurn | None:
+        """Make one request and validate its structured reasoning/tool pair."""
         response = self._client.responses.create(
             model=self._model,
             input=cast(Any, input_items),
@@ -180,6 +230,17 @@ class RecordedBackend:
         raw = json.loads(path.read_text(encoding="utf-8"))
         return cls([AgentTurn.model_validate(turn) for turn in raw["turns"]])
 
+    @classmethod
+    def from_file_from_step(cls, path: Path, target_step_id: str) -> RecordedBackend:
+        """Load recorded turns beginning exactly at ``target_step_id``."""
+        backend = cls.from_file(path)
+        for index, turn in enumerate(backend._turns):
+            if turn.step.step_id == target_step_id:
+                return cls(backend._turns[index:])
+        raise ValueError(
+            f"target step ID is not present in recording: {target_step_id}"
+        )
+
     def next_turn(
         self, task_prompt: str, history: list[ToolResult]
     ) -> AgentTurn | None:
@@ -190,3 +251,13 @@ class RecordedBackend:
         turn = self._turns[self._position]
         self._position += 1
         return turn
+
+    def resume_turn(
+        self,
+        task_prompt: str,
+        replay_context: list[ReplayContextItem],
+        history: list[ToolResult],
+    ) -> AgentTurn | None:
+        """Return the next deterministic resumption turn."""
+        del replay_context
+        return self.next_turn(task_prompt, history)

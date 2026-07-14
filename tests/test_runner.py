@@ -24,6 +24,9 @@ def test_recorded_t1_run_writes_valid_trace(
     assert saved["task_id"] == "SIEVE-T1"
     assert trace.test_result.passed == ["vitest"]
     assert "return name?.trim()" in trace.final_diff
+    assert (run_dir / "checkpoints" / "initial" / "src" / "normalizeName.ts").is_file()
+    checkpoint = run_dir / "checkpoints" / "TSIEVE-T1-S001" / "src" / "normalizeName.ts"
+    assert "return name?.trim()" in checkpoint.read_text(encoding="utf-8")
 
 
 def test_unified_directory_diff_is_empty_for_equal_directories(tmp_path: Path) -> None:
