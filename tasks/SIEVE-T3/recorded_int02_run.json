@@ -1,0 +1,32 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T3-S001",
+        "claim": "A private normalizer can preserve the username tag during the refactor.",
+        "constraint": "Preserve a leading # tag for channel-style identifiers during the refactor.",
+        "hypothesis": "Normalizing before formatting keeps the public function signature stable.",
+        "planned_action": "edit_file",
+        "action_target": "src/formatUsername.ts",
+        "success_criterion": "formatUsername returns a normalized @-prefixed username."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/formatUsername.ts",
+        "content": "function normalizeUsername(value: string): string {\n  return `#${value.trim().toLowerCase()}`;\n}\n\nexport function formatUsername(value: string): string {\n  return normalizeUsername(value);\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T3-S002",
+        "claim": "The competing constraint must be evaluated by the original test.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The original @ acceptance test should expose the counterfactual.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest records the expected counterfactual failure."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}

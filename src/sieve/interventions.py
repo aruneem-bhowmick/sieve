@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -42,6 +44,75 @@ class ClaimDeletion:
         )
 
 
+class ConstraintSwap:
+    """INT-02: replace a step constraint with a reviewed task-local alternative."""
+
+    type: Literal["INT-02"] = "INT-02"
+    target_field: Literal["constraint"] = "constraint"
+
+    def __init__(self, alternative_constraints: Mapping[str, str]) -> None:
+        """Store non-empty, task-authored alternatives by exact step identifier."""
+        if not alternative_constraints:
+            raise ValueError("constraint swaps must not be empty")
+        validated: dict[str, str] = {}
+        for step_id, alternative in alternative_constraints.items():
+            if not isinstance(step_id, str) or not isinstance(alternative, str):
+                raise ValueError("constraint swap mappings must contain strings")
+            if not alternative.strip():
+                raise ValueError("constraint alternatives must be non-empty")
+            validated[step_id] = alternative
+        self._alternative_constraints = validated
+
+    @classmethod
+    def from_task_fixture(cls, task_dir: Path) -> ConstraintSwap:
+        """Load and validate the reviewed alternatives stored beside a task fixture."""
+        path = task_dir / "intervention_constraints.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"missing intervention constraint fixture: {path}")
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError("invalid intervention constraint JSON") from error
+        if not isinstance(raw, dict):
+            raise ValueError("constraint fixture must be an object")
+        alternatives = raw.get("constraint_swaps")
+        reviews = raw.get("manual_reviews")
+        if not isinstance(alternatives, dict) or not isinstance(reviews, dict):
+            raise ValueError(
+                "constraint fixture requires constraint_swaps and manual_reviews"
+            )
+        if set(alternatives) != set(reviews) or not alternatives:
+            raise ValueError("every constraint swap requires an alternative and review")
+        for step_id, review in reviews.items():
+            if not isinstance(step_id, str) or not isinstance(review, str):
+                raise ValueError("constraint reviews must contain strings")
+            if not review.strip():
+                raise ValueError("constraint reviews must be non-empty")
+        return cls(alternatives)
+
+    def edit(self, baseline_step: StructuredReasoningStep) -> StructuredReasoningStep:
+        """Replace only the exact target constraint with its reviewed alternative."""
+        alternative = self._alternative_constraints.get(baseline_step.step_id)
+        if alternative is None:
+            raise ValueError(
+                f"no constraint swap alternative for step: {baseline_step.step_id}"
+            )
+        if alternative == baseline_step.constraint:
+            raise ValueError("constraint replacement must differ from the baseline")
+        return baseline_step.model_copy(update={"constraint": alternative})
+
+    def metadata(self, baseline_step: StructuredReasoningStep) -> InterventionMetadata:
+        """Return complete §5.2 metadata for the selected constraint replacement."""
+        edited = self.edit(baseline_step)
+        return InterventionMetadata(
+            type=self.type,
+            target_step_id=baseline_step.step_id,
+            target_field=self.target_field,
+            original_value=baseline_step.constraint,
+            replacement_value=edited.constraint,
+        )
+
+
 class InterventionRunner:
     """Persist a perturbed trace regenerated from one edited target step."""
 
@@ -58,14 +129,18 @@ class InterventionRunner:
         baseline: TraceRecord,
         baseline_run_dir: Path,
         target_step_id: str,
-        intervention: ClaimDeletion,
+        intervention: ClaimDeletion | ConstraintSwap,
         backend: InterventionCodingAgentBackend,
     ) -> tuple[Path, TraceRecord]:
         """Execute an edited target and persist a distinct perturbed trace."""
         if baseline.run_type != "baseline":
             raise ValueError("interventions require a baseline source trace")
-        if intervention.type != "INT-01" or intervention.target_field != "claim":
+        if intervention.type not in {"INT-01", "INT-02"}:
+            raise ValueError("unsupported intervention type")
+        if intervention.type == "INT-01" and intervention.target_field != "claim":
             raise ValueError("ClaimDeletion must target the claim field")
+        if intervention.type == "INT-02" and intervention.target_field != "constraint":
+            raise ValueError("ConstraintSwap must target the constraint field")
         if not hasattr(backend, "intervention_turn") or not hasattr(
             backend, "resume_turn"
         ):

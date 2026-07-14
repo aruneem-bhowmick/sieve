@@ -12,7 +12,7 @@ from sieve.agent import (
     RecordedBackend,
     ResumableCodingAgentBackend,
 )
-from sieve.interventions import ClaimDeletion, InterventionRunner
+from sieve.interventions import ClaimDeletion, ConstraintSwap, InterventionRunner
 from sieve.resume import ResumeRunner
 from sieve.runner import TaskRunner
 from sieve.schemas import TraceRecord
@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     intervene = subparsers.add_parser("intervene", help="run one trace intervention")
     intervene.add_argument("--baseline-run-dir", type=Path, required=True)
     intervene.add_argument("--step", required=True)
-    intervene.add_argument("--type", choices=["INT-01"], required=True)
+    intervene.add_argument("--type", choices=["INT-01", "INT-02"], required=True)
     intervene.add_argument("--runs-dir", type=Path, default=Path("runs"))
     intervene.add_argument("--max-resumed-steps", type=int, default=20)
     intervene.add_argument(
@@ -95,15 +95,23 @@ def main() -> None:
                 OpenAIResponsesBackend(args.model)
             )
         else:
-            recording = root / "tasks" / baseline.task_id / "recorded_int01_run.json"
+            suffix = "int01" if args.type == "INT-01" else "int02"
+            recording = (
+                root / "tasks" / baseline.task_id / f"recorded_{suffix}_run.json"
+            )
             intervention_backend = RecordedBackend.from_file(recording)
+        intervention = (
+            ClaimDeletion()
+            if args.type == "INT-01"
+            else ConstraintSwap.from_task_fixture(root / "tasks" / baseline.task_id)
+        )
         run_dir, trace = InterventionRunner(
             root, root / args.runs_dir, args.max_resumed_steps
         ).run(
             baseline,
             baseline_run_dir,
             args.step,
-            ClaimDeletion(),
+            intervention,
             intervention_backend,
         )
     else:

@@ -106,3 +106,52 @@ def test_cli_intervene_int01_creates_perturbed_trace(
     trace = TraceRecord.model_validate_json(perturbed_trace.read_text(encoding="utf-8"))
     assert trace.run_type == "perturbed"
     assert trace.intervention.type == "INT-01"
+
+
+def test_cli_int02_loads_task_local_constraint_fixture(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Integration: the CLI loads T3's reviewed fixture before intervention."""
+    from subprocess import CompletedProcess
+
+    def fixture_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args
+        workspace = Path(str(kwargs["cwd"]))
+        failed = "#${" in (workspace / "src/formatUsername.ts").read_text()
+        return CompletedProcess(
+            "npm test",
+            int(failed),
+            "tests failed\n" if failed else "tests passed\n",
+            "",
+        )
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", fixture_vitest)
+    baseline_runs = tmp_path / "baseline-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sieve", "run", "--task", "SIEVE-T3", "--runs-dir", str(baseline_runs)],
+    )
+    cli.main()
+    baseline_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    perturbed_runs = tmp_path / "perturbed-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_trace.parent),
+            "--step",
+            "TSIEVE-T3-S001",
+            "--type",
+            "INT-02",
+            "--runs-dir",
+            str(perturbed_runs),
+        ],
+    )
+    cli.main()
+    perturbed_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    trace = TraceRecord.model_validate_json(perturbed_trace.read_text(encoding="utf-8"))
+    assert trace.intervention.replacement_value is not None
+    assert trace.intervention.replacement_value.startswith("Preserve a leading #")
+    assert len(trace.steps) == len(trace.tool_results)
