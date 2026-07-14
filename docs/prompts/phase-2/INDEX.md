@@ -23,3 +23,5 @@ Required final evidence: four perturbed records, one for every task/intervention
 Dependency edges: `SIV-SCH-002 → SIV-INT-005 → SIV-INT-006`. Phase 1 requirements are already implemented prerequisites, not Phase 2 executor jobs. Wave order is deliberately sequential because each later prompt consumes code and trace representation made by the preceding one.
 
 Before each wave, read `_PREAMBLE.md`; after each wave, run `python -m pytest -v && python -m ruff check . && python -m black --check . && python -m mypy --strict .`. Do not start a later wave if any executor reports a deviation, an out-of-scope write, an unresolved SIEVE-T3 fixture ambiguity, or an ADR-required contract change.
+
+Wave 3 additionally requires the root Node preflight `npm ci` followed by `npm --prefix tasks/SIEVE-T3 test`. A host certificate-validation failure is an environment blocker: repair the trusted certificate chain before retrying, without changing repository dependencies or disabling TLS verification.

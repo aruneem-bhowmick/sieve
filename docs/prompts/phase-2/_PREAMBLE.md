@@ -92,10 +92,20 @@ Resumption mechanics (binding for every intervention): steps `1..k-1` are replay
 - [ ] Use the direct Codex/GPT-5.6 API wrapper; do not add a third-party eval framework.
 - [ ] Do not implement AST diffing until Phase 3; Phase 2 continues to persist the existing unified final diff only.
 - [ ] Use `pytest` for Layers 1–3 and Vitest or Jest only inside task fixtures.
+- [ ] Before executing any task-fixture `npm test`, run `npm ci` once from the repository root, using the committed root `package-lock.json`; task fixture `package.json` files intentionally resolve the root-installed Vitest binary through Node module resolution.
 - [ ] Persist every trace, diff, and future score artifact as JSON under `runs/<run_id>/`.
 - [ ] Run `python -m pytest -v`, `python -m ruff check .`, `python -m black --check .`, and `python -m mypy --strict .`.
 - [ ] CI uses only mocked and recorded/golden tests; live Codex/GPT-5.6 smoke calls are manual and never CI-gated.
 - [ ] Reporting remains a Phase 4 static HTML deliverable; do not introduce UI or a backend in this phase.
+
+For Wave 3, the root dependency bootstrap is a mandatory execution preflight, not an optional repair step:
+
+```powershell
+npm ci
+npm --prefix tasks/SIEVE-T3 test
+```
+
+If `npm ci` fails because the host cannot validate its configured registry or proxy certificate, stop before reporting Wave 3 complete. Restore the host trust chain or use a trusted network with the same committed lockfile; do not set `strict-ssl=false`, disable TLS verification, replace the lockfile, or add per-task dependency locks.
 
 ## Full test taxonomy — verbatim from SIEVE-SPEC.md §10
 

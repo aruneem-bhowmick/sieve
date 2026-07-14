@@ -56,6 +56,14 @@ Declared write set:
 
 Mechanical pairwise comparison: one prompt has zero siblings, therefore zero write-set pairs and no possible in-wave intersection. It depends on Wave 2 because it extends the generic intervention runner and `sieve intervene` command instead of creating competing implementations.
 
+Required environment preflight, before an executor reports this wave complete:
+
+```text
+From the repository root, run npm ci using the committed package-lock.json.
+Then run npm --prefix tasks/SIEVE-T3 test.
+If npm ci reports registry or proxy certificate validation failure, stop and report that host trust-chain error. Do not disable TLS verification, change npm registry settings, or create a task-local dependency lockfile.
+```
+
 Executor fan-out invocation:
 
 ```text
