@@ -18,6 +18,7 @@ Implement the first real Layer 2 intervention. Given a completed baseline trace 
 - Read `TraceRecord.task_id`, `steps`, `tool_results`, `final_diff`, and `test_result`; write a new §5.2 trace with `run_type="perturbed"` and an `InterventionMetadata` whose `type="INT-01"`, `target_step_id` is the selected ID, `target_field="claim"`, `original_value` is the baseline claim, and `replacement_value=""`.
 - SIV-SCH-002 supplies ordered tool-result pairs; all new perturbed traces must explicitly supply one result for every new trace step.
 - SIV-INT-001 and SIV-INT-002 supply fixed prefix context, workspace checkpoints, resumable backends, and the `StepBudget` guard. Do not duplicate their implementations.
+- Before an intervention with a non-empty fixed prefix, require `len(baseline.tool_results) == len(baseline.steps)`; reject a legacy baseline that omits or incompletely supplies raw pairs rather than writing an invalid perturbed trace.
 - The relevant §15 risk is incoherent resumption. Reject a missing target, a non-baseline source trace, a non-INT-01 target field, an incorrect first regenerated step, or exhausted step budget rather than manufacturing a trace.
 
 ## Interface specification
@@ -47,6 +48,11 @@ class InterventionRunner:
     ) -> tuple[Path, TraceRecord]:
         """Execute one edited target step and persist its perturbed trace."""
 
+# At a target with prefix_length fixed steps, initialize both lists exactly:
+# steps = list(baseline.steps[:prefix_length])
+# tool_results = list(baseline.tool_results[:prefix_length])
+# Then append each regenerated step and the result returned by its matching action.
+
 # src/sieve/agent.py
 class InterventionCodingAgentBackend(ResumableCodingAgentBackend, Protocol):
     def intervention_turn(
@@ -71,7 +77,7 @@ class RecordedBackend:
 # optional --runs-dir (Path("runs")), --max-resumed-steps (20), --live, and --model ("gpt-5.6").
 ```
 
-`InterventionRunner.run` restores the checkpoint immediately before the target step, replays only `1..k-1` as `ReplayContextItem`s, calls `intervention_turn` for the edited step, then calls `resume_turn` for the continuation. The first returned turn must have the exact edited step values and a matching action; this prevents a backend from silently restoring the original claim. The continuation receives fixed prefix context plus the serialized edited target step. The runner executes every returned action through `TaskRunner._execute_turn`, preserves raw results in order, computes `final_diff` against the pristine task fixture, and persists a new run directory without touching the baseline artifacts.
+`InterventionRunner.run` restores the checkpoint immediately before the target step, replays only `1..k-1` as `ReplayContextItem`s, calls `intervention_turn` for the edited step, then calls `resume_turn` for the continuation. Copy the fixed prefix’s `steps` and `tool_results` by the same prefix length before appending regenerated pairs; do not initialize prefix tool results as an empty list. The first returned turn must have the exact edited step values and a matching action; this prevents a backend from silently restoring the original claim. The continuation receives fixed prefix context plus the serialized edited target step. The runner executes every returned action through `TaskRunner._execute_turn`, preserves raw results in order, computes `final_diff` against the pristine task fixture, and persists a new run directory without touching the baseline artifacts.
 
 ## Files to create or modify
 
@@ -100,11 +106,11 @@ For a target at the first step, restore `checkpoints/initial`; otherwise restore
 | Type | Test cases |
 |---|---|
 | Unit | `test_claim_deletion_blanks_only_claim`; `test_claim_deletion_metadata_records_original_and_empty_replacement`; `test_intervention_runner_rejects_unknown_target`; and `test_intervention_runner_rejects_nonbaseline_source_trace`. Assert all non-claim fields are byte-for-byte equal after `model_dump`. |
-| Integration | `test_int01_runner_uses_phase1_prefix_context_and_checkpoint`; `test_int01_runner_persists_tool_result_pairs`; and `test_intervention_runner_writes_trace_through_canonical_persistence`. Spy only at public production boundaries and load the written JSON with `TraceRecord.model_validate_json`. |
+| Integration | `test_int01_runner_uses_phase1_prefix_context_and_checkpoint`; `test_int01_runner_copies_fixed_prefix_tool_result_pairs`: intervene at S002 and assert the fixed S001 result equals the baseline S001 result at index zero; `test_int01_runner_persists_tool_result_pairs`; and `test_intervention_runner_writes_trace_through_canonical_persistence`. Spy only at public production boundaries and load the written JSON with `TraceRecord.model_validate_json`. |
 | System | `test_recorded_int01_sieve_t1_runs_baseline_then_perturbed_trace`: use `TaskRunner`, `InterventionRunner`, the recorded baseline/INT-01 backends, and the actual SIEVE-T1 fixture test command; assert baseline and perturbed run directories differ, both traces complete, and the altered target action executes. |
 | Acceptance | `test_phase2_int01_sieve_t1_produces_paired_trace_records_with_populated_metadata`: assert exactly one baseline and one INT-01 trace for SIEVE-T1, equal task IDs, distinct UUIDs, `run_type="perturbed"` for the latter, complete metadata, and ordered step/result pairs. SIEVE-T3 matrix completion is intentionally deferred to SIV-INT-006 because the fixture does not yet exist. |
 | Smoke | `test_int01_smoke_recorded_sieve_t1`: run recorded claim deletion at `TSIEVE-T1-S001` with a two-step budget and assert a persisted perturbed `trace.json`. |
-| Sanity | `test_int01_edited_trace_has_one_empty_claim_and_no_other_target_field_change`: assert only the requested target claim is empty, no other claim is changed, and every tool result still matches the corresponding action. |
+| Sanity | `test_int01_edited_trace_has_one_empty_claim_and_no_other_target_field_change`: assert only the requested target claim is empty, no other claim is changed, every tool result still matches the corresponding action, and the result/step lists have equal length for both S001 and S002 targets. |
 | Regression | `test_recorded_int01_sieve_t1_matches_phase2_golden_trace`: normalize UUID and timestamp, then compare the persisted trace with `tests/fixtures/phase2/SIEVE-T1-int01-perturbed-trace.json`; this runs with no live call. |
 | End-to-end | `test_cli_intervene_int01_creates_perturbed_trace`: create a recorded baseline under `tmp_path / "baseline-runs"`, invoke `sieve intervene` with that baseline directory and `tmp_path / "perturbed-runs"`, target `TSIEVE-T1-S001`, and type `INT-01`; assert the printed trace path contains valid INT-01 metadata. |
 | API | `test_openai_intervention_turn_sends_fixed_prefix_and_exact_edited_step`: mock `responses.create`, assert the edited S001 JSON is sent after the prefix and before tool history, assert `response_tools()` is used, and reject a mock response whose emitted step differs from `edited_step`. Live smoke is N/A — §8 excludes live calls from CI. |
