@@ -54,7 +54,9 @@ class CodingAgentBackend(Protocol):
 
     def next_turn(
         self, task_prompt: str, history: list[ToolResult]
-    ) -> AgentTurn | None: ...
+    ) -> AgentTurn | None:
+        """Return one validated turn or ``None`` when the task is complete."""
+        ...
 
 
 def _tool_schema(
