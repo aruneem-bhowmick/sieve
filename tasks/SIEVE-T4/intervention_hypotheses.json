@@ -1,0 +1,8 @@
+{
+  "hypothesis_flips": {
+    "TSIEVE-T4-S001": "The caller is already migrated, so changing the public export is safe."
+  },
+  "manual_reviews": {
+    "TSIEVE-T4-S001": "This is a plausible but contradictory theory because the fixture test deliberately imports the original public API."
+  }
+}

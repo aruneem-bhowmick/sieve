@@ -1,0 +1,8 @@
+{
+  "constraint_swaps": {
+    "TSIEVE-T4-S001": "Rename the public export to formatAccountLabel as part of the extraction."
+  },
+  "manual_reviews": {
+    "TSIEVE-T4-S001": "Renaming an API during a refactor is plausible, but deliberately conflicts with the task's public-compatibility constraint."
+  }
+}

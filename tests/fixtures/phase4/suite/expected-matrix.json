@@ -1,0 +1,7 @@
+[
+  ["SIEVE-T1", "INT-01"], ["SIEVE-T1", "INT-02"], ["SIEVE-T1", "INT-03"],
+  ["SIEVE-T2", "INT-01"], ["SIEVE-T2", "INT-02"], ["SIEVE-T2", "INT-03"],
+  ["SIEVE-T3", "INT-01"], ["SIEVE-T3", "INT-02"], ["SIEVE-T3", "INT-03"],
+  ["SIEVE-T4", "INT-01"], ["SIEVE-T4", "INT-02"], ["SIEVE-T4", "INT-03"],
+  ["SIEVE-T5", "INT-01"], ["SIEVE-T5", "INT-02"], ["SIEVE-T5", "INT-03"]
+]

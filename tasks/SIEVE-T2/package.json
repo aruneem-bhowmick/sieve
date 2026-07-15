@@ -1,0 +1,5 @@
+{
+  "name": "sieve-t2",
+  "private": true,
+  "scripts": {"test": "vitest run"}
+}

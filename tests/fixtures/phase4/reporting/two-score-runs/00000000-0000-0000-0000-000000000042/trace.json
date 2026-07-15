@@ -1,0 +1,26 @@
+{
+  "task_id": "SIEVE-T3",
+  "run_id": "00000000-0000-0000-0000-000000000042",
+  "run_type": "perturbed",
+  "intervention": {
+    "type": "INT-02",
+    "target_step_id": "TSIEVE-T3-S001",
+    "target_field": "constraint",
+    "original_value": "Preserve a leading @ tag.",
+    "replacement_value": "Preserve a leading # tag."
+  },
+  "steps": [
+    {
+      "step_id": "TSIEVE-T3-S001",
+      "claim": "A private normalizer can preserve the tag.",
+      "constraint": "Preserve a leading # tag.",
+      "hypothesis": "Normalizing before formatting keeps the signature stable.",
+      "planned_action": "edit_file",
+      "action_target": "src/formatUsername.ts",
+      "success_criterion": "The task test records the counterfactual failure."
+    }
+  ],
+  "final_diff": "--- a/src/formatUsername.ts\\n+++ b/src/formatUsername.ts\\n",
+  "test_result": {"passed": [], "failed": ["vitest"]},
+  "timestamp": "2026-07-14T20:00:02Z"
+}

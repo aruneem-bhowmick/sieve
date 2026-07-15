@@ -309,3 +309,160 @@ def test_cli_live_paths_select_the_openai_backend_without_a_network_call(
         cli.main()
 
     assert capsys.readouterr().out.count("run_id=") == 3
+
+
+def test_cli_int03_parser_selects_task_recording_and_writes_perturbed_trace(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Smoke/integration: the offline CLI exposes and selects INT-03."""
+    from subprocess import CompletedProcess
+
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    baseline_runs = tmp_path / "baseline-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sieve", "run", "--task", "SIEVE-T1", "--runs-dir", str(baseline_runs)],
+    )
+    cli.main()
+    baseline_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    perturbed_runs = tmp_path / "perturbed-runs"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_trace.parent),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--type",
+            "INT-03",
+            "--runs-dir",
+            str(perturbed_runs),
+        ],
+    )
+    cli.main()
+    perturbed_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    trace = TraceRecord.model_validate_json(perturbed_trace.read_text(encoding="utf-8"))
+    assert trace.intervention.type == "INT-03"
+    assert trace.intervention.target_field == "hypothesis"
+
+
+def test_cli_run_intervene_int03_then_score_writes_trace_and_score_under_runs(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    """End-to-end: mocked task tests exercise all three CLI stages on disk."""
+    from subprocess import CompletedProcess
+
+    def successful_vitest(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args, kwargs
+        return CompletedProcess("npm test", 0, stdout="passed\n", stderr="")
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", successful_vitest)
+    runs = tmp_path / "runs"
+    monkeypatch.setattr(
+        "sys.argv", ["sieve", "run", "--task", "SIEVE-T1", "--runs-dir", str(runs)]
+    )
+    cli.main()
+    baseline_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_trace.parent),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--type",
+            "INT-03",
+            "--runs-dir",
+            str(runs),
+        ],
+    )
+    cli.main()
+    perturbed_trace = Path(capsys.readouterr().out.split("trace=", 1)[1].strip())
+    baseline = TraceRecord.model_validate_json(
+        baseline_trace.read_text(encoding="utf-8")
+    )
+    perturbed = TraceRecord.model_validate_json(
+        perturbed_trace.read_text(encoding="utf-8")
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "score",
+            str(baseline.run_id),
+            str(perturbed.run_id),
+            "--runs-dir",
+            str(runs),
+        ],
+    )
+    cli.main()
+    score_path = runs / str(perturbed.run_id) / "score.json"
+    assert score_path.is_file()
+    assert capsys.readouterr().out.strip() == f"score={score_path}"
+
+
+def test_cli_int03_live_selects_openai_backend_without_network_call(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    """API: INT-03's manual-live route constructs the direct backend under mocks."""
+    trace = TraceRecord(
+        task_id="SIEVE-T1",
+        run_id=uuid4(),
+        run_type="baseline",
+        intervention=InterventionMetadata(),
+        steps=[],
+        final_diff="",
+        test_result=TestResult(passed=[], failed=[]),
+    )
+    baseline_dir = tmp_path / "baseline"
+    baseline_dir.mkdir()
+    (baseline_dir / "checkpoints").mkdir()
+    write_trace(baseline_dir, trace)
+    selected: list[str] = []
+
+    def backend(model: str) -> object:
+        selected.append(model)
+        return object()
+
+    def fake_intervene(self: object, *args: object) -> tuple[Path, TraceRecord]:
+        del self, args
+        return tmp_path, trace
+
+    monkeypatch.setattr("sieve.cli.OpenAIResponsesBackend", backend)
+    monkeypatch.setattr("sieve.cli.InterventionRunner.run", fake_intervene)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sieve",
+            "intervene",
+            "--baseline-run-dir",
+            str(baseline_dir),
+            "--step",
+            "TSIEVE-T1-S001",
+            "--type",
+            "INT-03",
+            "--live",
+        ],
+    )
+    cli.main()
+    assert selected == ["gpt-5.6"]
+    assert "run_id=" in capsys.readouterr().out
+
+
+def test_cli_run_suite_parser_declares_phase4_defaults() -> None:
+    """Unit: the public Phase 4 command keeps its offline artifact defaults."""
+    args = cli.build_parser().parse_args(["run-suite"])
+    assert args.command == "run-suite"
+    assert args.runs_dir == Path("runs")
+    assert args.report_path == Path("report.html")
+    assert args.live is False
+    assert args.model == "gpt-5.6"
+    assert args.short is False

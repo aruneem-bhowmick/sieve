@@ -1,0 +1,8 @@
+{
+  "hypothesis_flips": {
+    "TSIEVE-T3-S001": "The public tag can be added after normalization, so preserving it in the normalizer is unnecessary."
+  },
+  "manual_reviews": {
+    "TSIEVE-T3-S001": "Adding an identifier tag after normalization is a plausible refactoring theory, but it contradicts the baseline theory that the normalizer itself must preserve the public tag."
+  }
+}

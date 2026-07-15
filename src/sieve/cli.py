@@ -13,11 +13,17 @@ from sieve.agent import (
     RecordedBackend,
     ResumableCodingAgentBackend,
 )
-from sieve.interventions import ClaimDeletion, ConstraintSwap, InterventionRunner
+from sieve.interventions import (
+    ClaimDeletion,
+    ConstraintSwap,
+    HypothesisFlip,
+    InterventionRunner,
+)
 from sieve.resume import ResumeRunner
 from sieve.runner import TaskRunner
 from sieve.schemas import TraceRecord
 from sieve.scoring import ScoreRunner
+from sieve.suite import run_suite
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,7 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     intervene = subparsers.add_parser("intervene", help="run one trace intervention")
     intervene.add_argument("--baseline-run-dir", type=Path, required=True)
     intervene.add_argument("--step", required=True)
-    intervene.add_argument("--type", choices=["INT-01", "INT-02"], required=True)
+    intervene.add_argument(
+        "--type", choices=["INT-01", "INT-02", "INT-03"], required=True
+    )
     intervene.add_argument("--runs-dir", type=Path, default=Path("runs"))
     intervene.add_argument("--max-resumed-steps", type=int, default=20)
     intervene.add_argument(
@@ -52,6 +60,14 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("run_id_baseline", type=UUID)
     score.add_argument("run_id_perturbed", type=UUID)
     score.add_argument("--runs-dir", type=Path, default=Path("runs"))
+    suite = subparsers.add_parser("run-suite", help="run the full recorded suite")
+    suite.add_argument("--runs-dir", type=Path, default=Path("runs"))
+    suite.add_argument("--report-path", type=Path, default=Path("report.html"))
+    suite.add_argument(
+        "--live", action="store_true", help="use the OpenAI Responses API"
+    )
+    suite.add_argument("--model", default="gpt-5.6")
+    suite.add_argument("--short", action="store_true", help="run SIEVE-T1 INT-01 only")
     return parser
 
 
@@ -101,16 +117,23 @@ def main() -> None:
                 OpenAIResponsesBackend(args.model)
             )
         else:
-            suffix = "int01" if args.type == "INT-01" else "int02"
+            suffix = {
+                "INT-01": "int01",
+                "INT-02": "int02",
+                "INT-03": "int03",
+            }[args.type]
             recording = (
                 root / "tasks" / baseline.task_id / f"recorded_{suffix}_run.json"
             )
             intervention_backend = RecordedBackend.from_file(recording)
-        intervention = (
-            ClaimDeletion()
-            if args.type == "INT-01"
-            else ConstraintSwap.from_task_fixture(root / "tasks" / baseline.task_id)
-        )
+        task_dir = root / "tasks" / baseline.task_id
+        intervention: ClaimDeletion | ConstraintSwap | HypothesisFlip
+        if args.type == "INT-01":
+            intervention = ClaimDeletion()
+        elif args.type == "INT-02":
+            intervention = ConstraintSwap.from_task_fixture(task_dir)
+        else:
+            intervention = HypothesisFlip.from_task_fixture(task_dir)
         run_dir, trace = InterventionRunner(
             root, root / args.runs_dir, args.max_resumed_steps
         ).run(
@@ -125,6 +148,23 @@ def main() -> None:
             args.run_id_baseline, args.run_id_perturbed
         )
         print(f"score={score_path}")
+        return
+    elif args.command == "run-suite":
+        result = run_suite(
+            root,
+            root / args.runs_dir,
+            root / args.report_path,
+            live=args.live,
+            model=args.model,
+            short=args.short,
+        )
+        if args.short:
+            print(f"report={result.report_path}")
+        else:
+            print(f"baselines={len(result.baseline_run_ids)}")
+            print(f"perturbed={len(result.perturbed_run_ids)}")
+            print(f"scores={len(result.score_paths)}")
+            print(f"report={result.report_path}")
         return
     else:
         raise ValueError(f"unsupported command: {args.command}")

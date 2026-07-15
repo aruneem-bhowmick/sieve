@@ -1,0 +1,8 @@
+{
+  "hypothesis_flips": {
+    "TSIEVE-T1-S001": "The failing edge case is caused by an empty string rather than an omitted optional value."
+  },
+  "manual_reviews": {
+    "TSIEVE-T1-S001": "Empty strings are a plausible input-normalization failure mode, but this directly contradicts the baseline diagnosis that undefined is the source of the failure."
+  }
+}

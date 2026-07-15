@@ -113,6 +113,79 @@ class ConstraintSwap:
         )
 
 
+class HypothesisFlip:
+    """INT-03: replace a step hypothesis with a reviewed counterfactual."""
+
+    type: Literal["INT-03"] = "INT-03"
+    target_field: Literal["hypothesis"] = "hypothesis"
+
+    def __init__(self, alternative_hypotheses: Mapping[str, str]) -> None:
+        """Store non-empty, task-authored hypothesis flips by exact step ID."""
+        if not alternative_hypotheses:
+            raise ValueError("hypothesis flips must not be empty")
+        validated: dict[str, str] = {}
+        for step_id, alternative in alternative_hypotheses.items():
+            if not isinstance(step_id, str) or not isinstance(alternative, str):
+                raise ValueError("hypothesis flip mappings must contain strings")
+            if not step_id.strip() or not alternative.strip():
+                raise ValueError("hypothesis alternatives must be non-empty")
+            validated[step_id] = alternative
+        self._alternative_hypotheses = validated
+
+    @classmethod
+    def from_task_fixture(cls, task_dir: Path) -> HypothesisFlip:
+        """Load a complete, reviewed hypothesis-flip fixture for one task."""
+        path = task_dir / "intervention_hypotheses.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"missing intervention hypothesis fixture: {path}")
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError("invalid intervention hypothesis JSON") from error
+        if not isinstance(raw, dict) or set(raw) != {
+            "hypothesis_flips",
+            "manual_reviews",
+        }:
+            raise ValueError(
+                "hypothesis fixture requires exactly hypothesis_flips and "
+                "manual_reviews"
+            )
+        alternatives = raw["hypothesis_flips"]
+        reviews = raw["manual_reviews"]
+        if not isinstance(alternatives, dict) or not isinstance(reviews, dict):
+            raise ValueError("hypothesis fixture members must be objects")
+        if not alternatives or set(alternatives) != set(reviews):
+            raise ValueError("every hypothesis flip requires an alternative and review")
+        for step_id, review in reviews.items():
+            if not isinstance(step_id, str) or not isinstance(review, str):
+                raise ValueError("hypothesis reviews must contain strings")
+            if not step_id.strip() or not review.strip():
+                raise ValueError("hypothesis reviews must be non-empty")
+        return cls(alternatives)
+
+    def edit(self, baseline_step: StructuredReasoningStep) -> StructuredReasoningStep:
+        """Replace only a reviewed target step's hypothesis."""
+        alternative = self._alternative_hypotheses.get(baseline_step.step_id)
+        if alternative is None:
+            raise ValueError(
+                f"no hypothesis flip alternative for step: {baseline_step.step_id}"
+            )
+        if alternative == baseline_step.hypothesis:
+            raise ValueError("hypothesis replacement must differ from the baseline")
+        return baseline_step.model_copy(update={"hypothesis": alternative})
+
+    def metadata(self, baseline_step: StructuredReasoningStep) -> InterventionMetadata:
+        """Return complete §5.2 metadata for the selected hypothesis flip."""
+        edited = self.edit(baseline_step)
+        return InterventionMetadata(
+            type=self.type,
+            target_step_id=baseline_step.step_id,
+            target_field=self.target_field,
+            original_value=baseline_step.hypothesis,
+            replacement_value=edited.hypothesis,
+        )
+
+
 class InterventionRunner:
     """Persist a perturbed trace regenerated from one edited target step."""
 
@@ -129,18 +202,20 @@ class InterventionRunner:
         baseline: TraceRecord,
         baseline_run_dir: Path,
         target_step_id: str,
-        intervention: ClaimDeletion | ConstraintSwap,
+        intervention: ClaimDeletion | ConstraintSwap | HypothesisFlip,
         backend: InterventionCodingAgentBackend,
     ) -> tuple[Path, TraceRecord]:
         """Execute an edited target and persist a distinct perturbed trace."""
         if baseline.run_type != "baseline":
             raise ValueError("interventions require a baseline source trace")
-        if intervention.type not in {"INT-01", "INT-02"}:
+        if intervention.type not in {"INT-01", "INT-02", "INT-03"}:
             raise ValueError("unsupported intervention type")
         if intervention.type == "INT-01" and intervention.target_field != "claim":
             raise ValueError("ClaimDeletion must target the claim field")
         if intervention.type == "INT-02" and intervention.target_field != "constraint":
             raise ValueError("ConstraintSwap must target the constraint field")
+        if intervention.type == "INT-03" and intervention.target_field != "hypothesis":
+            raise ValueError("HypothesisFlip must target the hypothesis field")
         if not hasattr(backend, "intervention_turn") or not hasattr(
             backend, "resume_turn"
         ):

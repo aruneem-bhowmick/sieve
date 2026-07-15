@@ -1,0 +1,8 @@
+{
+  "hypothesis_flips": {
+    "TSIEVE-T2-S001": "The page index is intentionally zero-based, so zero must remain valid."
+  },
+  "manual_reviews": {
+    "TSIEVE-T2-S001": "The flipped hypothesis is a plausible contradictory diagnosis of the observed lower-bound behavior."
+  }
+}

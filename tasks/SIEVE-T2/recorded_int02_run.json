@@ -1,0 +1,32 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T2-S001",
+        "claim": "The public pagination API is one-based, so its lower bound is page 1.",
+        "constraint": "Treat page numbers as zero-based and preserve zero as the first valid page.",
+        "hypothesis": "The implementation caps only the upper bound and omits the page-one lower bound.",
+        "planned_action": "edit_file",
+        "action_target": "src/clampPage.ts",
+        "success_criterion": "A zero page is clamped to 1 while values above totalPages still cap at totalPages."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/clampPage.ts",
+        "content": "export function clampPage(page: number, totalPages: number): number {\n  return Math.max(0, Math.min(page, totalPages));\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T2-S002",
+        "claim": "The competing convention must be evaluated by the original test.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The one-based test should expose the counterfactual.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}
