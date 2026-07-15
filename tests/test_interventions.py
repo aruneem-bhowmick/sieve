@@ -15,10 +15,16 @@ from sieve.agent import (
     RecordedBackend,
     ToolInvocation,
 )
-from sieve.interventions import ClaimDeletion, ConstraintSwap, InterventionRunner
+from sieve.interventions import (
+    ClaimDeletion,
+    ConstraintSwap,
+    HypothesisFlip,
+    InterventionRunner,
+)
 from sieve.replay import ReplayContextItem
 from sieve.runner import TaskRunner
-from sieve.schemas import PlannedAction, TraceRecord
+from sieve.schemas import PlannedAction, ScoreRecord, TraceRecord
+from sieve.scoring import ScoreRunner
 
 ROOT = Path.cwd()
 RECORDING = ROOT / "tasks/SIEVE-T1/recorded_int01_run.json"
@@ -30,6 +36,10 @@ T3_INT02 = T3 / "recorded_int02_run.json"
 T1_INT02_GOLDEN = ROOT / "tests/fixtures/phase2/SIEVE-T1-int02-perturbed-trace.json"
 T3_INT01_GOLDEN = ROOT / "tests/fixtures/phase2/SIEVE-T3-int01-perturbed-trace.json"
 T3_INT02_GOLDEN = ROOT / "tests/fixtures/phase2/SIEVE-T3-int02-perturbed-trace.json"
+T1_INT03 = ROOT / "tasks/SIEVE-T1/recorded_int03_run.json"
+T3_INT03 = T3 / "recorded_int03_run.json"
+T1_INT03_GOLDEN = ROOT / "tests/fixtures/phase4/int03/SIEVE-T1-perturbed-trace.json"
+T3_INT03_GOLDEN = ROOT / "tests/fixtures/phase4/int03/SIEVE-T3-perturbed-trace.json"
 
 
 @pytest.fixture
@@ -356,6 +366,20 @@ def _run_t3_int01(
     )
 
 
+def _run_int03(
+    tmp_path: Path, baseline: tuple[Path, TraceRecord], task_dir: Path
+) -> tuple[Path, TraceRecord]:
+    """Run an offline, task-authored hypothesis flip at the first step."""
+    baseline_dir, source = baseline
+    return InterventionRunner(ROOT, tmp_path / "int03-runs").run(
+        source,
+        baseline_dir,
+        source.steps[0].step_id,
+        HypothesisFlip.from_task_fixture(task_dir),
+        RecordedBackend.from_file(task_dir / "recorded_int03_run.json"),
+    )
+
+
 def test_constraint_swap_replaces_only_constraint(
     t3_baseline: tuple[Path, TraceRecord],
 ) -> None:
@@ -561,3 +585,241 @@ def test_openai_int02_intervention_turn_uses_task_authored_replacement(
     backend = OpenAIResponsesBackend("gpt-5.6")
     assert backend.intervention_turn("task", [], edited, []) is None
     assert edited.constraint in str(captured["input"])
+
+
+def test_hypothesis_flip_replaces_only_target_hypothesis_and_metadata_is_complete(
+    baseline: tuple[Path, TraceRecord],
+) -> None:
+    """Unit: INT-03 preserves every §5.1 field except the reviewed hypothesis."""
+    _, source = baseline
+    original = source.steps[0]
+    flip = HypothesisFlip.from_task_fixture(ROOT / "tasks/SIEVE-T1")
+    edited = flip.edit(original)
+    metadata = flip.metadata(original)
+    assert edited.model_dump(exclude={"hypothesis"}) == original.model_dump(
+        exclude={"hypothesis"}
+    )
+    assert edited.hypothesis != original.hypothesis
+    assert metadata.type == "INT-03"
+    assert metadata.target_step_id == original.step_id
+    assert metadata.target_field == "hypothesis"
+    assert metadata.original_value == original.hypothesis
+    assert metadata.replacement_value == edited.hypothesis
+
+
+def test_hypothesis_flip_rejects_empty_mismatched_or_equal_alternatives(
+    baseline: tuple[Path, TraceRecord],
+) -> None:
+    """Unit: no blank, unreviewed, or no-op counterfactual is accepted."""
+    _, source = baseline
+    original = source.steps[0]
+    with pytest.raises(ValueError, match="must not be empty"):
+        HypothesisFlip({})
+    with pytest.raises(ValueError, match="non-empty"):
+        HypothesisFlip({original.step_id: " "})
+    with pytest.raises(ValueError, match="differ"):
+        HypothesisFlip({original.step_id: original.hypothesis}).edit(original)
+    with pytest.raises(ValueError, match="no hypothesis flip alternative"):
+        HypothesisFlip({"TSIEVE-T1-S404": "A different plausible theory."}).edit(
+            original
+        )
+
+
+def test_hypothesis_flip_fixture_requires_matching_nonempty_reviews(
+    tmp_path: Path,
+) -> None:
+    """Unit: task fixtures expose paired, human-reviewable alternatives only."""
+    path = tmp_path / "intervention_hypotheses.json"
+    path.write_text(
+        '{"hypothesis_flips":{"TSIEVE-T1-S001":"alternative"},'
+        '"manual_reviews":{"TSIEVE-T1-S002":"review"}}',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="alternative and review"):
+        HypothesisFlip.from_task_fixture(tmp_path)
+    path.write_text(
+        '{"hypothesis_flips":{"TSIEVE-T1-S001":"alternative"},'
+        '"manual_reviews":{"TSIEVE-T1-S001":" "},"extra":true}',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="exactly"):
+        HypothesisFlip.from_task_fixture(tmp_path)
+
+
+def test_intervention_runner_rejects_int03_with_non_hypothesis_target_field(
+    tmp_path: Path, baseline: tuple[Path, TraceRecord]
+) -> None:
+    """Unit: runner validation prevents INT-03 from mutating another field."""
+    baseline_dir, source = baseline
+    flip = HypothesisFlip.from_task_fixture(ROOT / "tasks/SIEVE-T1")
+    flip.target_field = "claim"  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="HypothesisFlip must target"):
+        InterventionRunner(ROOT, tmp_path / "int03-runs").run(
+            source,
+            baseline_dir,
+            source.steps[0].step_id,
+            flip,
+            RecordedBackend.from_file(T1_INT03),
+        )
+
+
+def test_intervention_runner_replays_t1_prefix_then_persists_int03_trace_with_paired_tool_results(  # noqa: E501
+    tmp_path: Path, baseline: tuple[Path, TraceRecord]
+) -> None:
+    """Integration: an S002 flip preserves T1's exact fixed prefix and pairs."""
+    baseline_dir, source = baseline
+    flip = HypothesisFlip(
+        {"TSIEVE-T1-S002": "The test runner may be reporting a stale workspace."}
+    )
+    edited = flip.edit(source.steps[1])
+
+    class CapturingBackend(RecordedBackend):
+        def __init__(self) -> None:
+            super().__init__(
+                [
+                    AgentTurn(
+                        step=edited,
+                        action=ToolInvocation(
+                            name=PlannedAction.RUN_TESTS, target="npm test"
+                        ),
+                    )
+                ]
+            )
+            self.context: list[ReplayContextItem] = []
+
+        def intervention_turn(
+            self,
+            task_prompt: str,
+            replay_context: list[ReplayContextItem],
+            edited_step: object,
+            history: object,
+        ) -> AgentTurn | None:
+            del edited_step, history
+            self.context = replay_context
+            return self.next_turn(task_prompt, [])
+
+    backend = CapturingBackend()
+    _, trace = InterventionRunner(ROOT, tmp_path / "int03-runs").run(
+        source, baseline_dir, "TSIEVE-T1-S002", flip, backend
+    )
+    assert [item.step_id for item in backend.context] == ["TSIEVE-T1-S001"]
+    assert trace.steps[0] == source.steps[0]
+    assert trace.tool_results[0] == source.tool_results[0]
+    assert trace.intervention.type == "INT-03"
+    assert trace.intervention.target_field == "hypothesis"
+    assert len(trace.steps) == len(trace.tool_results) == 2
+
+
+def test_recorded_t1_int03_baseline_intervention_score_pipeline_produces_valid_score_record(  # noqa: E501
+    tmp_path: Path,
+) -> None:
+    """System: the deterministic T1 baseline → INT-03 → score pipeline is valid."""
+    runs = tmp_path / "runs"
+    baseline_dir, source = TaskRunner(ROOT, runs).run(
+        "SIEVE-T1", RecordedBackend.from_file(ROOT / "tasks/SIEVE-T1/recorded_run.json")
+    )
+    _, perturbed = InterventionRunner(ROOT, runs).run(
+        source,
+        baseline_dir,
+        "TSIEVE-T1-S001",
+        HypothesisFlip.from_task_fixture(ROOT / "tasks/SIEVE-T1"),
+        RecordedBackend.from_file(T1_INT03),
+    )
+    path, score = ScoreRunner(runs).score(source.run_id, perturbed.run_id)
+    assert path.is_file()
+    assert ScoreRecord.model_validate_json(path.read_text(encoding="utf-8")) == score
+    assert score.intervention_type == "INT-03"
+
+
+def test_int03_runs_successfully_for_t1_and_t3_with_populated_intervention_fields(
+    tmp_path: Path,
+    baseline: tuple[Path, TraceRecord],
+    t3_baseline: tuple[Path, TraceRecord],
+    fixture_vitest: None,
+) -> None:
+    """Acceptance: representative bug-fix and constraint tasks produce INT-03 traces."""
+    del fixture_vitest
+    _, t1 = _run_int03(tmp_path, baseline, ROOT / "tasks/SIEVE-T1")
+    _, t3 = _run_int03(tmp_path, t3_baseline, T3)
+    assert {(trace.task_id, trace.intervention.type) for trace in (t1, t3)} == {
+        ("SIEVE-T1", "INT-03"),
+        ("SIEVE-T3", "INT-03"),
+    }
+    assert all(trace.intervention.target_field == "hypothesis" for trace in (t1, t3))
+    assert all(trace.intervention.original_value for trace in (t1, t3))
+    assert all(trace.intervention.replacement_value for trace in (t1, t3))
+
+
+def test_hypothesis_flip_preserves_all_non_hypothesis_step_fields_and_replacement_is_plausible_reviewed_text(  # noqa: E501
+    baseline: tuple[Path, TraceRecord],
+    t3_baseline: tuple[Path, TraceRecord],
+) -> None:
+    """Sanity: each fixture is reviewed and its sole first-step delta is hypothesis."""
+    for task_dir, source in (
+        (ROOT / "tasks/SIEVE-T1", baseline[1]),
+        (T3, t3_baseline[1]),
+    ):
+        raw = json.loads((task_dir / "intervention_hypotheses.json").read_text())
+        original = source.steps[0]
+        edited = HypothesisFlip.from_task_fixture(task_dir).edit(original)
+        assert raw["manual_reviews"][original.step_id].strip()
+        assert edited.model_dump(exclude={"hypothesis"}) == original.model_dump(
+            exclude={"hypothesis"}
+        )
+        assert edited.hypothesis != original.hypothesis
+
+
+@pytest.mark.parametrize(
+    ("task_dir", "golden", "baseline_fixture"),
+    [
+        (ROOT / "tasks/SIEVE-T1", T1_INT03_GOLDEN, "t1"),
+        (T3, T3_INT03_GOLDEN, "t3"),
+    ],
+)
+def test_phase4_int03_t1_and_t3_trace_fixtures_validate_and_match_recorded_runs(
+    tmp_path: Path,
+    baseline: tuple[Path, TraceRecord],
+    t3_baseline: tuple[Path, TraceRecord],
+    fixture_vitest: None,
+    task_dir: Path,
+    golden: Path,
+    baseline_fixture: str,
+) -> None:
+    """Regression: frozen INT-03 traces validate and match deterministic output."""
+    del fixture_vitest
+    source = baseline if baseline_fixture == "t1" else t3_baseline
+    _, trace = _run_int03(tmp_path, source, task_dir)
+    actual = trace.model_dump(mode="json")
+    expected = json.loads(golden.read_text(encoding="utf-8"))
+    actual["run_id"] = expected["run_id"]
+    actual["timestamp"] = expected["timestamp"]
+    assert TraceRecord.model_validate(expected).intervention.type == "INT-03"
+    assert actual == expected
+
+
+def test_openai_intervention_turn_accepts_exact_hypothesis_edited_step_with_mocked_response(  # noqa: E501
+    monkeypatch: pytest.MonkeyPatch, baseline: tuple[Path, TraceRecord]
+) -> None:
+    """API: the mocked direct wrapper receives the exact task-authored flip."""
+    _, source = baseline
+    edited = HypothesisFlip.from_task_fixture(ROOT / "tasks/SIEVE-T1").edit(
+        source.steps[0]
+    )
+
+    class FakeResponse:
+        output: list[object] = []
+
+    captured: dict[str, object] = {}
+
+    def create(**kwargs: object) -> FakeResponse:
+        captured.update(kwargs)
+        return FakeResponse()
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.responses = type("Responses", (), {"create": staticmethod(create)})()
+
+    monkeypatch.setattr("sieve.agent.OpenAI", FakeClient)
+    backend = OpenAIResponsesBackend("gpt-5.6")
+    assert backend.intervention_turn("task", [], edited, []) is None
+    assert edited.hypothesis in str(captured["input"])

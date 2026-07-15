@@ -1,0 +1,32 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T1-S001",
+        "claim": "The API can omit the optional name value.",
+        "constraint": "Preserve normalizeName's public function signature.",
+        "hypothesis": "The failing edge case is caused by an empty string rather than an omitted optional value.",
+        "planned_action": "edit_file",
+        "action_target": "src/normalizeName.ts",
+        "success_criterion": "The implementation accepts undefined and returns an empty string."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/normalizeName.ts",
+        "content": "export function normalizeName(name?: string): string {\n  return name?.trim() ?? \"\";\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T1-S002",
+        "claim": "The null-safe implementation must be verified by the task tests.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The undefined input now resolves to an empty string.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}
