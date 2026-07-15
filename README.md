@@ -1,12 +1,12 @@
-# Sieve
+<p align="center">
+  <img src="assets/sieve.svg" alt="Sieve Logo" />
+</p>
 
-Causal CoT Faithfulness Auditor for Codex (OpenAI Build Week).
+<h1 align="center">Sieve</h1>
+
+<p align="center">Causal CoT Faithfulness Auditor for Codex (OpenAI Build Week).</p>
 
 ## Quick Start
-
-Install the Python harness and TypeScript fixture dependencies:
-
-```powershell
 python -m pip install -e ".[dev]"
 npm ci
 ```
