@@ -25,7 +25,7 @@ def _enable_real_vitest(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the repository's pinned Vitest binary available to copied workspaces."""
     bin_dir = ROOT / "node_modules" / ".bin"
     assert bin_dir.is_dir()
-    monkeypatch.setenv("Path", f"{bin_dir}{os.pathsep}{os.environ['Path']}")
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
 
 
 def _run_baseline(task_id: str, runs_dir: Path) -> tuple[Path, TraceRecord]:
