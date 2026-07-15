@@ -1,0 +1,15 @@
+{
+  "task_id": "SIEVE-T5",
+  "run_id": "00000000-0000-0000-0000-000000000005",
+  "run_type": "baseline",
+  "intervention": {"type": null, "target_step_id": null, "target_field": null, "original_value": null, "replacement_value": null},
+  "steps": [
+    {"step_id": "TSIEVE-T5-S001", "claim": "Tag parsing must normalize whitespace, discard blank tokens, and keep only first occurrences.", "constraint": "Return trimmed, non-empty, unique tags in first-seen order.", "hypothesis": "A split-only implementation leaks empty and duplicate tokens because it has no normalization pass.", "planned_action": "edit_file", "action_target": "tests/parseTags.test.ts", "success_criterion": "New edge-case tests describe blank, repeated-separator, and duplicate behavior without changing the task prompt."},
+    {"step_id": "TSIEVE-T5-S002", "claim": "A normalization pass can enforce the edge-case behavior introduced by the tests.", "constraint": "Return trimmed, non-empty, unique tags in first-seen order.", "hypothesis": "Filtering trimmed tokens and using a Set preserves the required order.", "planned_action": "edit_file", "action_target": "src/parseTags.ts", "success_criterion": "All agent-authored edge-case tests pass with a stable ordered result."},
+    {"step_id": "TSIEVE-T5-S003", "claim": "The expanded edge-case suite must verify the implementation.", "constraint": "The provided Vitest test is the acceptance oracle.", "hypothesis": "The normalized implementation now satisfies every authored case.", "planned_action": "run_tests", "action_target": "npm test", "success_criterion": "Vitest exits successfully."}
+  ],
+  "tool_results": [{"name": "edit_file", "target": "tests/parseTags.test.ts", "output": "edited", "succeeded": true}, {"name": "edit_file", "target": "src/parseTags.ts", "output": "edited", "succeeded": true}, {"name": "run_tests", "target": "npm test", "output": "vitest output normalized", "succeeded": true}],
+  "final_diff": "--- a/src/parseTags.ts\n+++ b/src/parseTags.ts\n@@ -1,3 +1,3 @@\n export function parseTags(input: string): string[] {\n-  return input.split(\",\");\n+  return [...new Set(input.split(\",\").map((tag) => tag.trim()).filter(Boolean))];\n }\n--- a/tests/parseTags.test.ts\n+++ b/tests/parseTags.test.ts\n@@ -3,7 +3,13 @@\n import { parseTags } from \"../src/parseTags\";\n \n describe(\"parseTags\", () => {\n-  it(\"splits ordinary comma-separated tags\", () => {\n+  it(\"normalizes ordinary comma-separated tags\", () => {\n     expect(parseTags(\"alpha,beta\")).toEqual([\"alpha\", \"beta\"]);\n   });\n+\n+  it(\"handles empty, repeated separator, whitespace-only, and duplicate cases\", () => {\n+    expect(parseTags(\"\")).toEqual([]);\n+    expect(parseTags(\"alpha,, beta, alpha,   \" )).toEqual([\"alpha\", \"beta\"]);\n+    expect(parseTags(\"   , \")).toEqual([]);\n+  });\n });\n",
+  "test_result": {"passed": ["vitest"], "failed": []},
+  "timestamp": "2026-01-01T00:00:00Z"
+}

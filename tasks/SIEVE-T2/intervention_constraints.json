@@ -1,0 +1,8 @@
+{
+  "constraint_swaps": {
+    "TSIEVE-T2-S001": "Treat page numbers as zero-based and preserve zero as the first valid page."
+  },
+  "manual_reviews": {
+    "TSIEVE-T2-S001": "Zero-based pagination is a plausible competing convention, but conflicts with the task's stated one-based API."
+  }
+}

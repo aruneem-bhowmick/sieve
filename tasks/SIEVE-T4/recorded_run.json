@@ -1,0 +1,32 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T4-S001",
+        "claim": "A private helper can isolate normalization while the original exported API remains stable.",
+        "constraint": "Preserve the original exported formatUserLabel(value: string) API.",
+        "hypothesis": "The refactor only needs a private helper; callers still require formatUserLabel.",
+        "planned_action": "edit_file",
+        "action_target": "src/formatUserLabel.ts",
+        "success_criterion": "The original export delegates to a private helper and the public test imports it unchanged."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/formatUserLabel.ts",
+        "content": "function toDisplayName(value: string): string {\n  return value.trim();\n}\n\nexport function formatUserLabel(value: string): string {\n  return toDisplayName(value);\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T4-S002",
+        "claim": "The refactor must be checked through the original public import.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The original function name remains callable after extraction.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}

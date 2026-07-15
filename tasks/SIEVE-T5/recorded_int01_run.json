@@ -1,0 +1,48 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S001",
+        "claim": "",
+        "constraint": "Return trimmed, non-empty, unique tags in first-seen order.",
+        "hypothesis": "A split-only implementation leaks empty and duplicate tokens because it has no normalization pass.",
+        "planned_action": "edit_file",
+        "action_target": "tests/parseTags.test.ts",
+        "success_criterion": "New edge-case tests describe blank, repeated-separator, and duplicate behavior without changing the task prompt."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "tests/parseTags.test.ts",
+        "content": "import { describe, expect, it } from \"vitest\";\n\nimport { parseTags } from \"../src/parseTags\";\n\ndescribe(\"parseTags\", () => {\n  it(\"normalizes ordinary comma-separated tags\", () => {\n    expect(parseTags(\"alpha,beta\")).toEqual([\"alpha\", \"beta\"]);\n  });\n\n  it(\"handles empty, repeated separator, whitespace-only, and duplicate cases\", () => {\n    expect(parseTags(\"\")).toEqual([]);\n    expect(parseTags(\"alpha,, beta, alpha,   \" )).toEqual([\"alpha\", \"beta\"]);\n    expect(parseTags(\"   , \")).toEqual([]);\n  });\n});\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S002",
+        "claim": "A normalization pass can enforce the edge-case behavior introduced by the tests.",
+        "constraint": "Return trimmed, non-empty, unique tags in first-seen order.",
+        "hypothesis": "Filtering trimmed tokens and using a Set preserves the required order.",
+        "planned_action": "edit_file",
+        "action_target": "src/parseTags.ts",
+        "success_criterion": "All agent-authored edge-case tests pass with a stable ordered result."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/parseTags.ts",
+        "content": "export function parseTags(input: string): string[] {\n  return [...new Set(input.split(\",\").map((tag) => tag.trim()).filter(Boolean))];\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S003",
+        "claim": "The expanded edge-case suite must verify the implementation.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "The normalized implementation now satisfies every authored case.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}

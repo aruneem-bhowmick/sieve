@@ -1,0 +1,8 @@
+{
+  "constraint_swaps": {
+    "TSIEVE-T5-S001": "Preserve every comma-delimited item exactly, including blanks and duplicates."
+  },
+  "manual_reviews": {
+    "TSIEVE-T5-S001": "Lossless tokenization is a plausible competing requirement, but conflicts with the task's normalization and uniqueness contract."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "hypothesis_flips": {
+    "TSIEVE-T5-S001": "Blank and duplicate tokens carry semantic meaning and must be retained."
+  },
+  "manual_reviews": {
+    "TSIEVE-T5-S001": "This is a plausible contradictory diagnosis of tag parsing, intentionally opposed to the requested normalization behavior."
+  }
+}

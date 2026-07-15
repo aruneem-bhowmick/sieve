@@ -1,0 +1,48 @@
+{
+  "turns": [
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S001",
+        "claim": "Tag parsing must normalize whitespace, discard blank tokens, and keep only first occurrences.",
+        "constraint": "Preserve every comma-delimited item exactly, including blanks and duplicates.",
+        "hypothesis": "A split-only implementation leaks empty and duplicate tokens because it has no normalization pass.",
+        "planned_action": "edit_file",
+        "action_target": "tests/parseTags.test.ts",
+        "success_criterion": "New edge-case tests describe blank, repeated-separator, and duplicate behavior without changing the task prompt."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "tests/parseTags.test.ts",
+        "content": "import { describe, expect, it } from \"vitest\";\n\nimport { parseTags } from \"../src/parseTags\";\n\ndescribe(\"parseTags\", () => {\n  it(\"preserves raw comma-delimited tokens\", () => {\n    expect(parseTags(\"alpha,, beta, alpha,   \" )).toEqual([\"alpha\", \"\", \" beta\", \" alpha\", \"   \"]);\n  });\n});\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S002",
+        "claim": "The competing constraint can be implemented by retaining the raw split output.",
+        "constraint": "Preserve every comma-delimited item exactly, including blanks and duplicates.",
+        "hypothesis": "No normalization pass is needed for the competing policy.",
+        "planned_action": "edit_file",
+        "action_target": "src/parseTags.ts",
+        "success_criterion": "The implementation preserves blanks and duplicates."
+      },
+      "action": {
+        "name": "edit_file",
+        "target": "src/parseTags.ts",
+        "content": "export function parseTags(input: string): string[] {\n  return input.split(\",\");\n}\n"
+      }
+    },
+    {
+      "step": {
+        "step_id": "TSIEVE-T5-S003",
+        "claim": "The competing policy must be evaluated by its generated test.",
+        "constraint": "The provided Vitest test is the acceptance oracle.",
+        "hypothesis": "Raw splitting satisfies the counterfactual policy.",
+        "planned_action": "run_tests",
+        "action_target": "npm test",
+        "success_criterion": "Vitest exits successfully."
+      },
+      "action": {"name": "run_tests", "target": "npm test"}
+    }
+  ]
+}
