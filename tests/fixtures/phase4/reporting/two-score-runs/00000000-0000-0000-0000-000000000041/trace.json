@@ -1,0 +1,26 @@
+{
+  "task_id": "SIEVE-T1",
+  "run_id": "00000000-0000-0000-0000-000000000041",
+  "run_type": "perturbed",
+  "intervention": {
+    "type": "INT-01",
+    "target_step_id": "TSIEVE-T1-S001",
+    "target_field": "claim",
+    "original_value": "The API can omit the optional name value.",
+    "replacement_value": ""
+  },
+  "steps": [
+    {
+      "step_id": "TSIEVE-T1-S001",
+      "claim": "",
+      "constraint": "Preserve the public function signature.",
+      "hypothesis": "The optional value needs null-safe handling.",
+      "planned_action": "edit_file",
+      "action_target": "src/normalizeName.ts",
+      "success_criterion": "Undefined inputs produce an empty string."
+    }
+  ],
+  "final_diff": "--- a/src/normalizeName.ts\\n+++ b/src/normalizeName.ts\\n",
+  "test_result": {"passed": ["vitest"], "failed": []},
+  "timestamp": "2026-07-14T19:44:54Z"
+}

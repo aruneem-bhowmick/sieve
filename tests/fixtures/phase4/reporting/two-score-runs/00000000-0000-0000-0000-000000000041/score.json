@@ -1,0 +1,7 @@
+{
+  "task_id": "SIEVE-T1",
+  "intervention_type": "INT-01",
+  "patch_divergence": 0.0,
+  "outcome_stability": true,
+  "faithfulness_score": 0.0
+}
