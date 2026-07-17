@@ -1,59 +1,89 @@
 <p align="center">
-  <img src="assets/sieve.svg" alt="Sieve Logo" width="320" />
+  <img src="assets/sieve.svg" alt="Sieve logo" width="320" />
 </p>
 
 <h1 align="center">Sieve</h1>
-<p align="center">Causal CoT Faithfulness Auditor for Codex (OpenAI Build Week).</p>
+<p align="center">Existing tools inspect an agent's reasoning. Sieve intervenes on it and measures whether the code actually follows.</p>
 
-## Quick Start
+Sieve is a causal faithfulness auditor for coding agents. It captures a
+structured rationale while an agent changes a task fixture, changes one stated
+claim, constraint, or hypothesis, and compares the resulting patch and test
+outcomes. The result is evidence about whether that rationale was necessary
+for the observed software artifact—not a generic evaluation score or a claim
+to reveal a model's private internal computation.
 
-Sieve requires Python 3.11+ and Node.js 22+. From a clean checkout, install the
-Python harness and the pinned TypeScript fixture dependencies:
+## Clean setup
+
+Sieve requires Python 3.11+ and Node.js 22+. From a clean repository checkout,
+install the Python harness and the pinned dependencies used by the TypeScript
+fixtures:
 
 ```powershell
 python -m pip install -e ".[dev]"
 npm ci
 ```
 
-### Canonical offline demo
+The repository's continuous checks use this same setup, invoke `python -m
+sieve --help`, and run a recorded fixture without API credentials.
 
-Run the deterministic recorded baseline for the first fixture:
+## One-command offline demo
 
-```powershell
-python -m sieve run --task SIEVE-T1
-```
-
-The command writes `trace.json`, `final.diff`, and an isolated task workspace
-under `runs/<run_id>/`; it uses no API tokens. It is verified from a clean
-checkout in CI. If task tooling is missing, run `npm ci` from the repository
-root. For a manual direct Responses API run, set `OPENAI_API_KEY` and add
-`--live`; live runs are intentionally not part of CI.
-
-### Complete offline audit
-
-Generate the complete recorded evidence matrix and its static report without
-calling a model API:
+After setup, run the complete deterministic audit and write its standalone
+report:
 
 ```powershell
 python -m sieve run-suite --runs-dir runs/release-audit --report-path report.html
 ```
 
-Choose a new `--runs-dir` and report path for each invocation; Sieve refuses
-to overwrite existing audit evidence. A successful run prints five baselines,
-15 perturbed runs, 15 scores, and the absolute path to `report.html`.
-The report contains the causal-outcome grid, all task/intervention scores, and
-the methodology limits needed to interpret the results responsibly.
+This command never calls a model API or consumes API tokens. It writes five
+recorded baselines, 15 single-intervention runs, and 15 score records beneath
+`runs/release-audit/`, then creates `report.html`. Open that file locally to
+inspect the patch-change/test-stability grid, per-task scores, and limitations.
+Choose a new `--runs-dir` and report path for each invocation: Sieve refuses to
+overwrite existing audit evidence.
 
-Run the harness checks with:
+For a smaller deterministic check of the first task, run:
 
 ```powershell
-python -m pytest -v
-python -m ruff check .
-python -m black --check .
-python -m mypy --strict .
+python -m sieve run --task SIEVE-T1 --runs-dir runs/first-task
 ```
 
-See [CHANGELOG.md](CHANGELOG.md) for delivered capabilities and the planned
-development roadmap. See the
-[implementation guide](docs/workflow/SIEVE-IMPLEMENTATION-GUIDE.md) for the
-ideator/executor workflow and reusable prompt templates.
+## Recorded evidence and manual live checks
+
+The default commands use reviewed recordings so the demo and automated checks
+are repeatable. Recorded output demonstrates the intervention workflow and the
+reporting path; it is not a fresh model invocation.
+
+To manually exercise the direct OpenAI Responses API, provide an API key and
+opt in with `--live`:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+python -m sieve run-suite --live --runs-dir runs/live-audit --report-path live-report.html
+```
+
+Live runs can incur API charges and can vary between invocations. They are
+manual smoke checks only: do not use them as a CI gate, and retain their output
+separately from the recorded demo evidence.
+
+## Reading the result honestly
+
+Sieve measures behavioral sensitivity to an edited structured rationale. A
+stable patch and test result after an edit is evidence that the stated
+rationale was not necessary for that output; it is not a mechanistic account
+of how the model reached its decision. The structured rationale is deliberate
+and bounded, and the included task set is an illustrative proof of concept,
+not a general benchmark.
+
+## Verification
+
+Run the local quality gate with:
+
+```powershell
+ruff check .
+black --check .
+mypy --strict .
+pytest -v
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for the delivered core and deferred roadmap.
