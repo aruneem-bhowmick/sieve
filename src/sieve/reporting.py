@@ -9,6 +9,7 @@ import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -268,7 +269,7 @@ def _render_row(entry: ReportEntry) -> str:
     score = entry.score
     stability = "stable" if score.outcome_stability else "changed"
     return (
-        "      <tr>"
+        f'      <tr id="{_report_row_id(score)}">'
         f"<td>{html.escape(score.task_id)}</td>"
         f"<td>{html.escape(score.intervention_type)}</td>"
         f"<td>{score.patch_divergence:.3f}</td>"
@@ -276,3 +277,10 @@ def _render_row(entry: ReportEntry) -> str:
         f"<td>{score.faithfulness_score:.3f}</td>"
         "</tr>"
     )
+
+
+def _report_row_id(score: ScoreRecord) -> str:
+    """Return a stable, fragment-safe anchor for one score-table row."""
+    task_id = quote(score.task_id, safe="")
+    intervention_type = quote(score.intervention_type, safe="")
+    return f"score-{task_id}-{intervention_type}"

@@ -171,7 +171,7 @@ def test_phase4_dod_full_run_suite_report_has_complete_matrix_grid_table_demo_ca
     )
     report = full_recorded_suite.report_path.read_text(encoding="utf-8")
     assert "two-by-two-grid" in report
-    assert report.count("<tbody>") == 1 and report.count("<tr>") == 16
+    assert report.count("<tbody>") == 1 and report.count("<tr") == 16
     assert "Honest Limitations" in report
 
 
@@ -316,5 +316,5 @@ def test_full_run_suite_report_has_visible_two_by_two_grid_fifteen_table_rows_an
     report = full_recorded_suite.report_path.read_text(encoding="utf-8")
     assert report.count('<div class="two-by-two-cells">') == 1
     assert report.count("<article id=") == 4
-    assert report.count("<tr>") == 16
+    assert report.count("<tr") == 16
     assert '<section id="honest-limitations"' in report

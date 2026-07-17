@@ -223,6 +223,38 @@ def test_render_report_escapes_values_formats_numbers_and_has_exact_table_column
     assert '<section id="two-by-two-grid"' in html
 
 
+def test_report_rows_have_stable_fragment_anchors_for_evidence_references() -> None:
+    faithful = ScoreRecord(
+        task_id="SIEVE-T3",
+        intervention_type="INT-02",
+        patch_divergence=0.025,
+        outcome_stability=False,
+        faithfulness_score=0.025,
+    )
+    rendered = render_report(
+        ReportData((ReportEntry(faithful, TestResult(passed=[], failed=["vitest"])),))
+    )
+    assert '<tr id="score-SIEVE-T3-INT-02">' in rendered
+
+
+def test_curated_examples_link_to_each_frozen_trace_score_and_report_row() -> None:
+    document = (ROOT / "docs" / "audit-examples.md").read_text(encoding="utf-8")
+    for evidence_path in (
+        "../tests/fixtures/phase3/t3-int02/baseline-trace.json",
+        "../tests/fixtures/phase3/t3-int02/perturbed-trace.json",
+        "../tests/fixtures/phase3/t3-int02/expected-score.json",
+        "../tests/fixtures/phase3/t1-int01/baseline-trace.json",
+        "../tests/fixtures/phase3/t1-int01/perturbed-trace.json",
+        "../tests/fixtures/phase3/t1-int01/expected-score.json",
+    ):
+        assert f"]({evidence_path})" in document
+    for anchor in ("score-SIEVE-T3-INT-02", "score-SIEVE-T1-INT-01"):
+        assert f"#{anchor})" in document
+        assert f'id="{anchor}"' in (REPORT_FIXTURES / "expected-table.html").read_text(
+            encoding="utf-8"
+        )
+
+
 def test_write_report_creates_parent_and_writes_exact_html(tmp_path: Path) -> None:
     runs = _copy_score_runs(tmp_path)
     output = tmp_path / "nested" / "report.html"
@@ -256,7 +288,7 @@ def test_recorded_t1_and_t3_scoring_then_write_report_produces_paired_entries_an
     output = tmp_path / "report.html"
     write_report(runs, output)
     assert [entry.score for entry in load_report_data(runs).entries] == expected_scores
-    assert _table_body(output.read_text(encoding="utf-8")).count("<tr>") == 2
+    assert _table_body(output.read_text(encoding="utf-8")).count("<tr") == 2
 
 
 def test_phase4_report_generator_renders_one_row_per_input_score_and_a_static_html_document(  # noqa: E501
@@ -265,7 +297,7 @@ def test_phase4_report_generator_renders_one_row_per_input_score_and_a_static_ht
     data = load_report_data(_copy_score_runs(tmp_path))
     rendered = render_report(data)
     assert rendered.startswith("<!doctype html>")
-    assert _table_body(rendered).count("<tr>") == len(data.entries)
+    assert _table_body(rendered).count("<tr") == len(data.entries)
 
 
 def test_write_report_smoke_for_one_score_is_nonblank_and_exits_without_network(
@@ -311,7 +343,7 @@ def test_rendered_report_is_parseable_nonblank_html_and_table_row_count_equals_i
     parser.feed(rendered)
     parser.close()
     assert rendered.strip()
-    assert _table_body(rendered).count("<tr>") == len(data.entries)
+    assert _table_body(rendered).count("<tr") == len(data.entries)
 
 
 def test_summarize_two_by_two_places_zero_and_positive_divergence_with_passing_and_broken_perturbed_tests_in_correct_cells() -> (  # noqa: E501
