@@ -1,12 +1,17 @@
 import json
 from pathlib import Path
-from subprocess import CompletedProcess
+from subprocess import CompletedProcess, TimeoutExpired
 
 import pytest
 
 from sieve import cli
 from sieve.agent import AgentTurn, RecordedBackend, ToolInvocation
-from sieve.runner import TaskRunner, _workspace_path, unified_directory_diff
+from sieve.runner import (
+    DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    TaskRunner,
+    _workspace_path,
+    unified_directory_diff,
+)
 from sieve.schemas import PlannedAction, StructuredReasoningStep, TraceRecord
 
 
@@ -92,7 +97,41 @@ def test_runner_command_execution_uses_utf8_with_replacement(
     assert captured["text"] is True
     assert captured["encoding"] == "utf-8"
     assert captured["errors"] == "replace"
+    assert captured["timeout"] == DEFAULT_COMMAND_TIMEOUT_SECONDS
     assert trace.tool_results[-1].output == "Vitest ✓\n"
+
+
+def test_runner_records_timed_out_test_command_as_a_failed_test_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def run(*args: object, **kwargs: object) -> CompletedProcess[str]:
+        del args
+        captured.update(kwargs)
+        raise TimeoutExpired(
+            "npm test", DEFAULT_COMMAND_TIMEOUT_SECONDS, "partial stdout\n", b"stderr"
+        )
+
+    monkeypatch.setattr("sieve.runner.subprocess.run", run)
+    root = Path.cwd()
+    _, trace = TaskRunner(root, tmp_path / "runs").run(
+        "SIEVE-T1", RecordedBackend.from_file(root / "tasks/SIEVE-T1/recorded_run.json")
+    )
+
+    result = trace.tool_results[-1]
+    assert captured["timeout"] == DEFAULT_COMMAND_TIMEOUT_SECONDS
+    assert result.succeeded is False
+    assert (
+        result.output == "partial stdout\nstderr\ncommand timed out after 30 seconds\n"
+    )
+    assert trace.test_result.passed == []
+    assert trace.test_result.failed == ["vitest"]
+
+
+def test_runner_rejects_nonpositive_command_timeout(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="timeout must be positive"):
+        TaskRunner(Path.cwd(), tmp_path, command_timeout_seconds=0)
 
 
 def test_runner_persists_step_result_pairs_through_canonical_write_trace(
