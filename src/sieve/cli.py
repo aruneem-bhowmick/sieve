@@ -13,6 +13,7 @@ from sieve.agent import (
     RecordedBackend,
     ResumableCodingAgentBackend,
 )
+from sieve.fixture_tools import FixtureToolingUnavailable, fixture_command_environment
 from sieve.interventions import (
     ClaimDeletion,
     ConstraintSwap,
@@ -73,8 +74,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """Run the requested baseline task and print its persisted trace path."""
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
     root = Path.cwd()
+    try:
+        if args.command in {"run", "resume", "intervene"}:
+            with fixture_command_environment(root):
+                _execute_command(args, root)
+        else:
+            _execute_command(args, root)
+    except FixtureToolingUnavailable as error:
+        parser.error(str(error))
+
+
+def _execute_command(args: argparse.Namespace, root: Path) -> None:
+    """Execute an already-parsed command with any required tooling configured."""
     if args.command == "run":
         if args.live:
             backend: CodingAgentBackend = OpenAIResponsesBackend(args.model)

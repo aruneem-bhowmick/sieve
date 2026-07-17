@@ -1,12 +1,15 @@
 from pathlib import Path
+from typing import Never
 from uuid import uuid4
 
 import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
 from sieve import cli
+from sieve.fixture_tools import FixtureToolingUnavailable
 from sieve.persistence import create_run_directory, write_trace
 from sieve.schemas import InterventionMetadata, TestResult, TraceRecord
+from sieve.suite import SuiteResult
 
 
 def test_cli_runs_recorded_task_and_prints_trace(
@@ -32,6 +35,44 @@ def test_cli_runs_recorded_task_and_prints_trace(
     monkeypatch.setattr("sys.argv", ["sieve", "run", "--task", "SIEVE-T1"])
     cli.main()
     assert f"run_id={trace.run_id}" in capsys.readouterr().out
+
+
+def test_cli_explains_how_to_recover_from_missing_fixture_tools(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    """Smoke: the installed command turns bootstrap failures into guidance."""
+
+    def unavailable_tools(_: Path) -> Never:
+        raise FixtureToolingUnavailable("Pinned task tooling is missing. Run npm ci.")
+
+    monkeypatch.setattr("sieve.cli.fixture_command_environment", unavailable_tools)
+    monkeypatch.setattr("sys.argv", ["sieve", "run", "--task", "SIEVE-T1"])
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    assert error.value.code == 2
+    assert "Run npm ci" in capsys.readouterr().err
+
+
+def test_cli_leaves_run_suite_fixture_setup_to_the_suite_runner(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Unit: run-suite does not apply the fixture environment a second time."""
+
+    def unexpected_tooling_setup(_: Path) -> Never:
+        raise AssertionError("CLI must not configure run-suite fixture tooling")
+
+    expected = SuiteResult((), (), (), tmp_path / "report.html")
+    monkeypatch.setattr(
+        "sieve.cli.fixture_command_environment", unexpected_tooling_setup
+    )
+    monkeypatch.setattr("sieve.cli.run_suite", lambda *args, **kwargs: expected)
+    monkeypatch.setattr("sys.argv", ["sieve", "run-suite", "--short"])
+
+    cli.main()
+
+    assert capsys.readouterr().out.strip() == f"report={expected.report_path}"
 
 
 def test_cli_resume_writes_new_trace_json(
