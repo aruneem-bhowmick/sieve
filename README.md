@@ -20,7 +20,7 @@ npm ci
 Run the deterministic recorded baseline for the first fixture:
 
 ```powershell
-sieve run --task SIEVE-T1
+python -m sieve run --task SIEVE-T1
 ```
 
 The command writes `trace.json`, `final.diff`, and an isolated task workspace
@@ -28,6 +28,21 @@ under `runs/<run_id>/`; it uses no API tokens. It is verified from a clean
 checkout in CI. If task tooling is missing, run `npm ci` from the repository
 root. For a manual direct Responses API run, set `OPENAI_API_KEY` and add
 `--live`; live runs are intentionally not part of CI.
+
+### Complete offline audit
+
+Generate the complete recorded evidence matrix and its static report without
+calling a model API:
+
+```powershell
+python -m sieve run-suite --runs-dir runs/release-audit --report-path report.html
+```
+
+Choose a new `--runs-dir` and report path for each invocation; Sieve refuses
+to overwrite existing audit evidence. A successful run prints five baselines,
+15 perturbed runs, 15 scores, and the absolute path to `report.html`.
+The report contains the causal-outcome grid, all task/intervention scores, and
+the methodology limits needed to interpret the results responsibly.
 
 Run the harness checks with:
 
