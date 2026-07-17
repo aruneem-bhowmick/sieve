@@ -1,111 +1,68 @@
 # Changelog
 
-All notable changes to Sieve are documented here. Entries are organized by the
-delivery increments that make the causal-faithfulness workflow progressively
-more useful. Planned entries describe intended, reviewable scope; they are not
-claims that the capability has shipped.
+All notable changes to Sieve are documented here. The shipped Build Week core
+is available now; the roadmap lists ideas that are deliberately not part of
+the delivered audit.
 
-## Unreleased
+## Shipped Build Week Core (Phases 0–4)
 
-### Skeleton — Implemented
-
-The project now provides a runnable baseline foundation for capturing a coding
-agent's structured rationale and resulting software artifact.
-
-#### Added
+### Structured recorded runs
 
 - Python packaging, strict linting and typing, GitHub Actions CI, and an 80%
   minimum branch-coverage gate.
 - Pydantic contracts for structured reasoning steps, trace records,
-  intervention metadata, and test outcomes.
+  intervention metadata, test outcomes, and score records.
 - Validation for task-local increasing step IDs, duplicate test IDs, and
   contradictory pass/fail results.
-- Disk persistence for trace JSON, final unified diffs, and isolated
-  `runs/<run_id>/` workspaces.
-- A deterministic recorded agent backend for local development and CI.
-- A direct OpenAI Responses API backend for manual live validation.
+- Disk persistence for trace JSON, final unified diffs, score records, and
+  isolated `runs/<run_id>/` workspaces.
+- A deterministic recorded backend for local development and CI, plus a direct
+  OpenAI Responses API backend for optional manual smoke checks.
 - A local task runner with action/plan consistency checks, workspace path
-  containment, a bounded step budget, and test-result capture.
-- `sieve run --task SIEVE-T1` for recorded baseline execution.
-- The first TypeScript/Vitest fixture: an undefined-input bug fix that
-  preserves the function's public signature.
-- Unit, integration-boundary, CLI, persistence, safety, and error-path tests.
-- Contributor workflow documentation for ideator/executor planning and
-  concurrency-safe implementation waves.
+  containment, bounded step budgets, and test-result capture.
+- Five isolated TypeScript/Vitest task fixtures covering bug fixing,
+  constraint-preserving refactors, and edge-case test generation.
 
-### Resume and Replay — Planned
+### Replay and interventions
 
-This increment will demonstrate that an agent can continue coherently from an
-arbitrary trace step before any rationale is altered.
+- Reconstruct prior trace steps as fixed context and resume from a selected
+  step with bounded continuation length.
+- Verify no-op replay fidelity against recorded baseline artifacts.
+- Apply claim deletion, constraint swap, and hypothesis flip interventions.
+- Persist complete intervention metadata and pair each reasoning step with its
+  raw local tool results.
 
-#### Planned changes
+### Scoring and evidence
 
-- Reconstruct all prior steps as fixed conversational context.
-- Resume generation from a selected step and persist the continuation as a
-  paired run artifact.
-- Add a no-op replay acceptance test that reproduces a baseline final diff
-  within defined tolerance.
-- Add a resume-specific step budget to bound time and API cost.
-- Add recorded replay fixtures for deterministic regression testing.
+- Compute normalized tree-sitter TypeScript patch divergence for paired runs.
+- Compare exact passed and failed test identifier sets for outcome stability.
+- Persist one score per task/intervention pair and reject degenerate audit
+  batches.
+- Maintain recorded trace-pair and score regressions for deterministic checks.
 
-### Intervention Core — Planned
+### Complete audit and report
 
-This increment will create the first causal trace pairs by editing exactly one
-stated rationale field and observing the resulting trajectory.
+- Run the full five-task, three-intervention recorded matrix with one command.
+- Render a self-contained static report containing the patch-change/
+  test-stability grid, per-task score table, and honest limitations.
+- Cover report generation with static rendering and visual regression checks.
 
-#### Planned changes
+## Deferred Roadmap (Phases 5–7)
 
-- Implement claim deletion: blank one `claim` field and resume execution.
-- Implement constraint swapping with task-authored plausible alternatives.
-- Persist raw local tool-call results alongside their associated reasoning
-  steps.
-- Store complete intervention metadata, including target step, field,
-  original value, and replacement value.
-- Add baseline/perturbed regression fixtures for the first bug-fix and
-  constraint-sensitive refactor tasks.
+These proposals are not shipped capabilities.
 
-### Scoring and Diffing — Planned
+### Cross-step and multi-model auditing
 
-This increment will convert paired run artifacts into interpretable evidence.
-
-#### Planned changes
-
-- Parse changed TypeScript blocks with tree-sitter and compute normalized
-  AST-level patch divergence.
-- Compare exact test pass/fail identifier sets for outcome stability.
-- Persist one score record per task/intervention pair.
-- Detect degenerate score batches that could indicate a broken diff,
-  ineffective intervention, or task suite with no causal signal.
-- Add golden trace-pair regression tests that prevent silent metric drift.
-
-### Full Suite and Report — Planned
-
-This increment will produce the Build Week demonstration artifact.
-
-#### Planned changes
-
-- Add the hypothesis-flip intervention.
-- Add the remaining TypeScript fixtures: boundary bug fixing, public API
-  compatibility refactoring, and held-out edge-case test generation.
-- Add one command to execute the complete baseline/intervention matrix.
-- Generate a self-contained `report.html` with a patch-change/test-stability
-  2x2, per-task score table, and the product's honest limitations.
-- Add static report rendering and visual regression coverage.
-
-## Deferred Roadmap
-
-### Cross-Step and Multi-Model Auditing
-
-- Move justification between unrelated steps to detect post-hoc rationales.
+- Move a justification between unrelated steps to test for post-hoc rationales.
 - Compare results across model backends while preserving the same task and
   intervention contracts.
 
-### Evaluation-Framework Interoperability
+### Evaluation-framework interoperability
 
 - Expose the intervention mechanism for use from established evaluation
   systems without surrendering Sieve's artifact and reproducibility model.
 
-### Benchmark Rigor
+### Benchmark rigor
 
 - Expand the task suite, run multiple seeds, calculate confidence intervals,
   and package the methodology as a citable experimental artifact.
