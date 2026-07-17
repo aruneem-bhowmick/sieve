@@ -30,6 +30,22 @@ def test_fixture_command_environment_exposes_pinned_tools_and_restores_path(
     assert os.environ[path_key] == "existing-path"
 
 
+def test_fixture_command_environment_does_not_add_an_empty_path_entry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Unit: no inherited PATH creates no current-working-directory entry."""
+    bin_dir = tmp_path / "node_modules" / ".bin"
+    bin_dir.mkdir(parents=True)
+    monkeypatch.delenv("PATH", raising=False)
+    monkeypatch.delenv("Path", raising=False)
+    monkeypatch.setattr("sieve.fixture_tools.shutil.which", lambda name: name)
+
+    with fixture_command_environment(tmp_path):
+        assert os.environ["PATH"] == str(bin_dir)
+
+    assert "PATH" not in os.environ
+
+
 def test_fixture_command_environment_explains_missing_node_prerequisite(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

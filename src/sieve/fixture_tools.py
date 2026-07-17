@@ -36,7 +36,9 @@ def fixture_command_environment(repo_root: Path) -> Iterator[None]:
 
     path_key = path_environment_key()
     previous = os.environ.get(path_key)
-    os.environ[path_key] = f"{bin_dir}{os.pathsep}{previous or ''}"
+    os.environ[path_key] = (
+        f"{bin_dir}{os.pathsep}{previous}" if previous else str(bin_dir)
+    )
     try:
         yield
     finally:
