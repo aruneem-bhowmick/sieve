@@ -1,3 +1,4 @@
+import runpy
 from pathlib import Path
 from typing import Never
 from uuid import uuid4
@@ -10,6 +11,19 @@ from sieve.fixture_tools import FixtureToolingUnavailable
 from sieve.persistence import create_run_directory, write_trace
 from sieve.schemas import InterventionMetadata, TestResult, TraceRecord
 from sieve.suite import SuiteResult
+
+
+def test_python_module_entry_point_exposes_the_cli(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    """Smoke: ``python -m sieve`` is usable when console scripts are not on PATH."""
+    monkeypatch.setattr("sys.argv", ["sieve", "--help"])
+
+    with pytest.raises(SystemExit) as error:
+        runpy.run_module("sieve", run_name="__main__")
+
+    assert error.value.code == 0
+    assert "usage: sieve" in capsys.readouterr().out
 
 
 def test_cli_runs_recorded_task_and_prints_trace(

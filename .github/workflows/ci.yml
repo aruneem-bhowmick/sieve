@@ -17,8 +17,8 @@ jobs:
           node-version: "22"
       - run: python -m pip install -e ".[dev]"
       - run: npm ci
-      - run: sieve --help
-      - run: sieve run --task SIEVE-T1 --runs-dir bootstrap-runs
+      - run: python -m sieve --help
+      - run: python -m sieve run --task SIEVE-T1 --runs-dir bootstrap-runs
       - run: pytest -v
       - run: ruff check .
       - run: black --check .
