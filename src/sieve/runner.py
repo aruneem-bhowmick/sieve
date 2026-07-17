@@ -18,15 +18,26 @@ from sieve.schemas import (
     TraceRecord,
 )
 
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
+
 
 class TaskRunner:
     """Execute one task fixture against a backend in an isolated workspace."""
 
-    def __init__(self, repo_root: Path, runs_dir: Path, max_steps: int = 20) -> None:
+    def __init__(
+        self,
+        repo_root: Path,
+        runs_dir: Path,
+        max_steps: int = 20,
+        command_timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> None:
         """Configure fixture discovery, artifact storage, and a step limit."""
+        if command_timeout_seconds <= 0:
+            raise ValueError("command timeout must be positive")
         self._repo_root = repo_root
         self._runs_dir = runs_dir
         self._max_steps = max_steps
+        self._command_timeout_seconds = command_timeout_seconds
 
     def run(
         self, task_id: str, backend: CodingAgentBackend
@@ -120,27 +131,33 @@ class TaskRunner:
                 None,
             )
         if turn.action.name in {PlannedAction.RUN_TESTS, PlannedAction.RUN_COMMAND}:
-            completed = subprocess.run(
-                turn.action.target,
-                cwd=workspace,
-                shell=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                capture_output=True,
-                check=False,
-            )
-            output = completed.stdout + completed.stderr
+            try:
+                completed = subprocess.run(
+                    turn.action.target,
+                    cwd=workspace,
+                    shell=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    capture_output=True,
+                    check=False,
+                    timeout=self._command_timeout_seconds,
+                )
+                output = completed.stdout + completed.stderr
+                succeeded = completed.returncode == 0
+            except subprocess.TimeoutExpired as error:
+                output = _timeout_output(error, self._command_timeout_seconds)
+                succeeded = False
             result = ToolResultRecord(
                 name=turn.action.name,
                 target=turn.action.target,
                 output=output,
-                succeeded=completed.returncode == 0,
+                succeeded=succeeded,
             )
             if turn.action.name == PlannedAction.RUN_TESTS:
                 test_result = TestResult(
-                    passed=["vitest"] if completed.returncode == 0 else [],
-                    failed=[] if completed.returncode == 0 else ["vitest"],
+                    passed=["vitest"] if succeeded else [],
+                    failed=[] if succeeded else ["vitest"],
                 )
                 return result, test_result
             return result, None
@@ -158,6 +175,25 @@ def _workspace_path(workspace: Path, target: str) -> Path:
 def _file_contains(path: Path, query: str) -> bool:
     """Return whether a UTF-8 fixture file contains the requested query."""
     return query in path.read_text(encoding="utf-8")
+
+
+def _timeout_output(error: subprocess.TimeoutExpired, timeout_seconds: int) -> str:
+    """Return partial command output followed by a deterministic timeout marker."""
+    stdout = _decode_timeout_stream(error.stdout)
+    stderr = _decode_timeout_stream(error.stderr)
+    partial_output = stdout + stderr
+    separator = "" if not partial_output or partial_output.endswith("\n") else "\n"
+    marker = f"command timed out after {timeout_seconds} seconds\n"
+    return f"{partial_output}{separator}{marker}"
+
+
+def _decode_timeout_stream(stream: str | bytes | None) -> str:
+    """Normalize timeout output because subprocess may return bytes on timeout."""
+    if stream is None:
+        return ""
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", errors="replace")
+    return stream
 
 
 def unified_directory_diff(original: Path, changed: Path) -> str:

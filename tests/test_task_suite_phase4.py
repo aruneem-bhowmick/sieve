@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -19,13 +21,40 @@ from sieve.scoring import ScoreRunner, assert_nondegenerate
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = ("SIEVE-T2", "SIEVE-T4", "SIEVE-T5")
 GOLDENS = ROOT / "tests" / "fixtures" / "phase4" / "task-suite"
+pytestmark = pytest.mark.timeout(45)
+
+BaselineRun = tuple[Path, TraceRecord]
+ScoredCounterfactual = tuple[Path, TraceRecord, Path, ScoreRecord]
 
 
 def _enable_real_vitest(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the repository's pinned Vitest binary available to copied workspaces."""
     bin_dir = ROOT / "node_modules" / ".bin"
     assert bin_dir.is_dir()
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    path_key = _path_environment_key()
+    monkeypatch.setenv(path_key, f"{bin_dir}{os.pathsep}{os.environ.get(path_key, '')}")
+
+
+@contextmanager
+def _real_vitest_available() -> Iterator[None]:
+    """Temporarily expose the repository-pinned Vitest binary to workspaces."""
+    bin_dir = ROOT / "node_modules" / ".bin"
+    assert bin_dir.is_dir()
+    path_key = _path_environment_key()
+    previous = os.environ.get(path_key)
+    os.environ[path_key] = f"{bin_dir}{os.pathsep}{previous or ''}"
+    try:
+        yield
+    finally:
+        if previous is None:
+            del os.environ[path_key]
+        else:
+            os.environ[path_key] = previous
+
+
+def _path_environment_key() -> str:
+    """Prefer the portable PATH key and retain the Windows-only fallback."""
+    return "PATH" if "PATH" in os.environ or "Path" not in os.environ else "Path"
 
 
 def _run_baseline(task_id: str, runs_dir: Path) -> tuple[Path, TraceRecord]:
@@ -33,6 +62,41 @@ def _run_baseline(task_id: str, runs_dir: Path) -> tuple[Path, TraceRecord]:
     return TaskRunner(ROOT, runs_dir).run(
         task_id, RecordedBackend.from_file(task_dir / "recorded_run.json")
     )
+
+
+@pytest.fixture(scope="module")
+def recorded_baselines(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Iterator[dict[str, BaselineRun]]:
+    """Run each recorded fixture once for all assertions that inspect baselines."""
+    runs_dir = tmp_path_factory.mktemp("recorded-task-baselines") / "runs"
+    with _real_vitest_available():
+        yield {task_id: _run_baseline(task_id, runs_dir) for task_id in TASKS}
+
+
+@pytest.fixture(scope="module")
+def recorded_int01_results(
+    recorded_baselines: dict[str, BaselineRun],
+) -> Iterator[dict[str, ScoredCounterfactual]]:
+    """Produce one real recorded counterfactual per fixture for system coverage."""
+    results: dict[str, ScoredCounterfactual] = {}
+    with _real_vitest_available():
+        for task_id, (baseline_dir, baseline) in recorded_baselines.items():
+            runs_dir = baseline_dir.parent
+            perturbed_dir, perturbed = InterventionRunner(ROOT, runs_dir).run(
+                baseline,
+                baseline_dir,
+                baseline.steps[0].step_id,
+                ClaimDeletion(),
+                RecordedBackend.from_file(
+                    ROOT / "tasks" / task_id / "recorded_int01_run.json"
+                ),
+            )
+            score_path, score = ScoreRunner(runs_dir).score(
+                baseline.run_id, perturbed.run_id
+            )
+            results[task_id] = (perturbed_dir, perturbed, score_path, score)
+    yield results
 
 
 def test_t2_t4_t5_recorded_documents_validate_as_agent_turn_sequences() -> None:
@@ -84,13 +148,26 @@ def test_t5_held_out_edge_case_oracle_has_unique_case_ids() -> None:
     } <= set(ids)
 
 
+def test_real_vitest_path_setup_supports_posix_path_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unit: copied workspaces receive Vitest when only POSIX PATH is defined."""
+    monkeypatch.delenv("Path", raising=False)
+    monkeypatch.setenv("PATH", "existing-path")
+
+    _enable_real_vitest(monkeypatch)
+
+    assert (
+        os.environ["PATH"]
+        == f"{ROOT / 'node_modules' / '.bin'}{os.pathsep}existing-path"
+    )
+
+
 def test_existing_task_runner_loads_each_new_fixture_without_harness_changes(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    recorded_baselines: dict[str, BaselineRun],
 ) -> None:
     """Integration: the existing runner loads each complete fixture unmodified."""
-    _enable_real_vitest(monkeypatch)
-    for task_id in TASKS:
-        run_dir, trace = _run_baseline(task_id, tmp_path / task_id)
+    for run_dir, trace in recorded_baselines.values():
         assert (run_dir / "workspace" / "task.md").is_file()
         assert trace.test_result.passed == ["vitest"]
 
@@ -104,48 +181,36 @@ def test_existing_intervention_loader_accepts_each_constraint_fixture() -> None:
 
 
 def test_recorded_t2_t4_t5_baseline_plus_int01_produces_score_records(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    recorded_int01_results: dict[str, ScoredCounterfactual],
 ) -> None:
     """System: no mocked pipeline layer or Vitest subprocess is used."""
-    _enable_real_vitest(monkeypatch)
-    for task_id in TASKS:
-        runs_dir = tmp_path / task_id
-        baseline_dir, baseline = _run_baseline(task_id, runs_dir)
-        perturbed_dir, perturbed = InterventionRunner(ROOT, runs_dir).run(
-            baseline,
-            baseline_dir,
-            baseline.steps[0].step_id,
-            ClaimDeletion(),
-            RecordedBackend.from_file(
-                ROOT / "tasks" / task_id / "recorded_int01_run.json"
-            ),
-        )
-        score_path, score = ScoreRunner(runs_dir).score(
-            baseline.run_id, perturbed.run_id
-        )
+    for task_id, (
+        perturbed_dir,
+        _,
+        score_path,
+        score,
+    ) in recorded_int01_results.items():
         assert perturbed_dir / "trace.json"
         assert score_path.is_file()
         assert score.task_id == task_id
 
 
 def test_new_fixture_directories_are_isolated_and_each_runs_unmodified_through_existing_pipeline(  # noqa: E501
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    recorded_baselines: dict[str, BaselineRun],
 ) -> None:
     """Acceptance: all added task content is task-local and harness-generic."""
-    _enable_real_vitest(monkeypatch)
     for task_id in TASKS:
         task_dir = ROOT / "tasks" / task_id
         assert (task_dir / "src").is_dir() and (task_dir / "tests").is_dir()
-        run_dir, _ = _run_baseline(task_id, tmp_path / task_id)
+        run_dir, _ = recorded_baselines[task_id]
         assert (run_dir / "workspace" / "held_out_edge_cases.json").exists() is False
 
 
 def test_t2_recorded_baseline_runs_and_writes_valid_trace(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    recorded_baselines: dict[str, BaselineRun],
 ) -> None:
     """Smoke: a single T2 recorded run is alive and persists its trace."""
-    _enable_real_vitest(monkeypatch)
-    run_dir, trace = _run_baseline("SIEVE-T2", tmp_path)
+    run_dir, trace = recorded_baselines["SIEVE-T2"]
     persisted = TraceRecord.model_validate_json(
         (run_dir / "trace.json").read_text(encoding="utf-8")
     )
@@ -196,12 +261,11 @@ def test_new_recorded_scores_are_not_all_identical() -> None:
 
 
 def test_phase4_new_task_baseline_trace_fixtures_match_recorded_baseline_output(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    recorded_baselines: dict[str, BaselineRun],
 ) -> None:
     """Regression: frozen trace fixtures match deterministic recorded runs."""
-    _enable_real_vitest(monkeypatch)
     for task_id in TASKS:
-        _, trace = _run_baseline(task_id, tmp_path / task_id)
+        _, trace = recorded_baselines[task_id]
         actual = trace.model_dump(mode="json")
         expected = json.loads(
             (GOLDENS / f"{task_id}-baseline-trace.json").read_text(encoding="utf-8")
