@@ -31,7 +31,8 @@ def _enable_real_vitest(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the repository's pinned Vitest binary available to copied workspaces."""
     bin_dir = ROOT / "node_modules" / ".bin"
     assert bin_dir.is_dir()
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    path_key = _path_environment_key()
+    monkeypatch.setenv(path_key, f"{bin_dir}{os.pathsep}{os.environ.get(path_key, '')}")
 
 
 @contextmanager
@@ -39,15 +40,21 @@ def _real_vitest_available() -> Iterator[None]:
     """Temporarily expose the repository-pinned Vitest binary to workspaces."""
     bin_dir = ROOT / "node_modules" / ".bin"
     assert bin_dir.is_dir()
-    previous = os.environ.get("Path")
-    os.environ["Path"] = f"{bin_dir}{os.pathsep}{previous or ''}"
+    path_key = _path_environment_key()
+    previous = os.environ.get(path_key)
+    os.environ[path_key] = f"{bin_dir}{os.pathsep}{previous or ''}"
     try:
         yield
     finally:
         if previous is None:
-            del os.environ["Path"]
+            del os.environ[path_key]
         else:
-            os.environ["Path"] = previous
+            os.environ[path_key] = previous
+
+
+def _path_environment_key() -> str:
+    """Prefer the portable PATH key and retain the Windows-only fallback."""
+    return "PATH" if "PATH" in os.environ or "Path" not in os.environ else "Path"
 
 
 def _run_baseline(task_id: str, runs_dir: Path) -> tuple[Path, TraceRecord]:
@@ -139,6 +146,21 @@ def test_t5_held_out_edge_case_oracle_has_unique_case_ids() -> None:
         "whitespace-only",
         "duplicate-tags",
     } <= set(ids)
+
+
+def test_real_vitest_path_setup_supports_posix_path_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unit: copied workspaces receive Vitest when only POSIX PATH is defined."""
+    monkeypatch.delenv("Path", raising=False)
+    monkeypatch.setenv("PATH", "existing-path")
+
+    _enable_real_vitest(monkeypatch)
+
+    assert (
+        os.environ["PATH"]
+        == f"{ROOT / 'node_modules' / '.bin'}{os.pathsep}existing-path"
+    )
 
 
 def test_existing_task_runner_loads_each_new_fixture_without_harness_changes(

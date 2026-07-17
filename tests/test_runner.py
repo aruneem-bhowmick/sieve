@@ -123,7 +123,8 @@ def test_runner_records_timed_out_test_command_as_a_failed_test_result(
     assert captured["timeout"] == DEFAULT_COMMAND_TIMEOUT_SECONDS
     assert result.succeeded is False
     assert (
-        result.output == "partial stdout\nstderr\ncommand timed out after 30 seconds\n"
+        result.output == "partial stdout\nstderr\n"
+        f"command timed out after {DEFAULT_COMMAND_TIMEOUT_SECONDS} seconds\n"
     )
     assert trace.test_result.passed == []
     assert trace.test_result.failed == ["vitest"]
