@@ -78,7 +78,7 @@ def main() -> None:
     args = parser.parse_args()
     root = Path.cwd()
     try:
-        if args.command in {"run", "resume", "intervene", "run-suite"}:
+        if args.command in {"run", "resume", "intervene"}:
             with fixture_command_environment(root):
                 _execute_command(args, root)
         else:
