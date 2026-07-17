@@ -7,12 +7,15 @@
 
 ## Quick Start
 
-Install the Python harness and TypeScript fixture dependencies:
+Sieve requires Python 3.11+ and Node.js 22+. From a clean checkout, install the
+Python harness and the pinned TypeScript fixture dependencies:
 
 ```powershell
 python -m pip install -e ".[dev]"
 npm ci
 ```
+
+### Canonical offline demo
 
 Run the deterministic recorded baseline for the first fixture:
 
@@ -21,9 +24,10 @@ sieve run --task SIEVE-T1
 ```
 
 The command writes `trace.json`, `final.diff`, and an isolated task workspace
-under `runs/<run_id>/`. It uses no API tokens. For a manual direct Responses
-API run, set `OPENAI_API_KEY` and add `--live`; live runs are intentionally not
-part of CI.
+under `runs/<run_id>/`; it uses no API tokens. It is verified from a clean
+checkout in CI. If task tooling is missing, run `npm ci` from the repository
+root. For a manual direct Responses API run, set `OPENAI_API_KEY` and add
+`--live`; live runs are intentionally not part of CI.
 
 Run the harness checks with:
 

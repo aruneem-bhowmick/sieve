@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -14,6 +12,7 @@ from sieve.agent import (
     OpenAIResponsesBackend,
     RecordedBackend,
 )
+from sieve.fixture_tools import fixture_command_environment
 from sieve.interventions import (
     ClaimDeletion,
     ConstraintSwap,
@@ -92,7 +91,7 @@ def run_suite(
     intervention_runner = InterventionRunner(root, output_runs)
     scorer = ScoreRunner(output_runs)
 
-    with _copied_workspace_vitest_available(root):
+    with fixture_command_environment(root):
         for task_id in dict.fromkeys(task for task, _ in pairs):
             task_dir = root / "tasks" / task_id
             baseline_backend = _backend_for(
@@ -239,20 +238,3 @@ def _validate_completed_scores(
     if not has_unfaithful:
         raise ValueError("completed full suite lacks an unfaithful demo category")
     assert_nondegenerate(scores)
-
-
-@contextmanager
-def _copied_workspace_vitest_available(repo_root: Path) -> Iterator[None]:
-    """Expose the repository-pinned Vitest executable to copied task workspaces."""
-    bin_dir = repo_root / "node_modules" / ".bin"
-    if not bin_dir.is_dir():
-        raise FileNotFoundError(f"missing pinned Vitest binary directory: {bin_dir}")
-    previous = os.environ.get("Path")
-    os.environ["Path"] = f"{bin_dir}{os.pathsep}{previous or ''}"
-    try:
-        yield
-    finally:
-        if previous is None:
-            del os.environ["Path"]
-        else:
-            os.environ["Path"] = previous

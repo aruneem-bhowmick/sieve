@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -5,6 +7,7 @@ import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
 from sieve import cli
+from sieve.fixture_tools import FixtureToolingUnavailable
 from sieve.persistence import create_run_directory, write_trace
 from sieve.schemas import InterventionMetadata, TestResult, TraceRecord
 
@@ -32,6 +35,26 @@ def test_cli_runs_recorded_task_and_prints_trace(
     monkeypatch.setattr("sys.argv", ["sieve", "run", "--task", "SIEVE-T1"])
     cli.main()
     assert f"run_id={trace.run_id}" in capsys.readouterr().out
+
+
+def test_cli_explains_how_to_recover_from_missing_fixture_tools(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    """Smoke: the installed command turns bootstrap failures into guidance."""
+
+    @contextmanager
+    def unavailable_tools(_: Path) -> Iterator[None]:
+        raise FixtureToolingUnavailable("Pinned task tooling is missing. Run npm ci.")
+        yield
+
+    monkeypatch.setattr("sieve.cli.fixture_command_environment", unavailable_tools)
+    monkeypatch.setattr("sys.argv", ["sieve", "run", "--task", "SIEVE-T1"])
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    assert error.value.code == 2
+    assert "Run npm ci" in capsys.readouterr().err
 
 
 def test_cli_resume_writes_new_trace_json(
