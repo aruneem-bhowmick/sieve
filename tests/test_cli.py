@@ -1,6 +1,5 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
+from typing import Never
 from uuid import uuid4
 
 import pytest
@@ -42,10 +41,8 @@ def test_cli_explains_how_to_recover_from_missing_fixture_tools(
 ) -> None:
     """Smoke: the installed command turns bootstrap failures into guidance."""
 
-    @contextmanager
-    def unavailable_tools(_: Path) -> Iterator[None]:
+    def unavailable_tools(_: Path) -> Never:
         raise FixtureToolingUnavailable("Pinned task tooling is missing. Run npm ci.")
-        yield
 
     monkeypatch.setattr("sieve.cli.fixture_command_environment", unavailable_tools)
     monkeypatch.setattr("sys.argv", ["sieve", "run", "--task", "SIEVE-T1"])
