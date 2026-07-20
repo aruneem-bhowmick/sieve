@@ -334,13 +334,27 @@ def _read_trace(path: Path) -> TraceRecord:
 
 
 def _render_header() -> str:
-    return """    <header class="brand-header">
+    return f"""    <header class="brand-header">
       <a class="brand" href="#top" aria-label="Sieve audit report">
-        <svg class="brand-logo" viewBox="0 0 80 64" role="img" aria-label="Sieve logo"><path fill="currentColor" d="M9 7h62v8H9zm8 13h46v8H17zm8 13h30v8H25zm8 13h14v8H33z"/><circle cx="40" cy="58" r="4" fill="#8ce4ba"/></svg>
+        {_embedded_logo()}
         <span>Sieve</span>
       </a>
       <p>Recorded causal audit · offline evidence</p>
     </header>"""
+
+
+def _embedded_logo() -> str:
+    """Inline the repository logo so a report stays standalone at view time."""
+    logo_path = Path(__file__).resolve().parents[2] / "assets" / "sieve.svg"
+    try:
+        logo = logo_path.read_text(encoding="utf-8")
+    except OSError:
+        return (
+            '<svg class="brand-logo" viewBox="0 0 80 64" aria-hidden="true">'
+            '<path fill="currentColor" d="M9 7h62v8H9zm8 13h46v8H17zm8 13h30v8H25zm8 13h14v8H33z"/>'
+            '<circle cx="40" cy="58" r="4" fill="#8ce4ba"/></svg>'
+        )
+    return logo.replace("<svg ", '<svg class="brand-logo" aria-hidden="true" ', 1)
 
 
 def _render_hero(task_count: int, intervention_count: int, run_count: int) -> str:
@@ -452,7 +466,7 @@ _REPORT_CSS = """    :root { color-scheme: dark; --bg: #080d12; --panel: #101922
     main { width: min(1120px, calc(100% - 2rem)); margin: auto; }
     section { padding: 4.5rem 0; border-bottom: 1px solid var(--line); }
     h1, h2, h3, p { margin-top: 0; } h1, h2, h3 { line-height: 1.05; letter-spacing: -.035em; } h2 { max-width: 720px; font-size: clamp(1.8rem, 4vw, 3rem); } h3 { font-size: 1.1rem; } .eyebrow, .card-kicker { color: var(--mint); font-size: .76rem; font-weight: 760; letter-spacing: .13em; text-transform: uppercase; }
-    .brand-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .82rem; } .brand-header p { margin: 0; } .brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--text); font-size: 1.05rem; font-weight: 780; text-decoration: none; } .brand-logo { width: 30px; color: var(--mint); }
+    .brand-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .82rem; } .brand-header p { margin: 0; } .brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--text); font-size: 1.05rem; font-weight: 780; text-decoration: none; } .brand-logo { width: 42px; height: 34px; color: var(--mint); }
     .hero { padding: clamp(4rem, 11vw, 8.5rem) 0 4rem; } .hero h1 { max-width: 900px; margin-bottom: 1.2rem; font-size: clamp(3.1rem, 8vw, 6.4rem); } .hero-copy { max-width: 650px; color: var(--muted); font-size: 1.18rem; } .scope { display: flex; gap: 3rem; margin: 3rem 0 0; } .scope div { min-width: 9rem; } .scope dt { color: var(--mint); font-size: 2.25rem; font-weight: 800; line-height: 1; } .scope dd { margin: .35rem 0 0; color: var(--muted); }
     .method-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 2rem 0 0; padding: 1px; background: var(--line); list-style: none; } .method-steps li { padding: 1.5rem; background: var(--panel); } .method-steps span { display: block; margin-bottom: 1.25rem; color: var(--mint); font-size: .8rem; font-weight: 800; } .method-steps strong { display: block; font-size: 1.25rem; } .method-steps p { margin: .35rem 0 0; color: var(--muted); }
     .section-heading > p:last-child, .summary-copy { color: var(--muted); } .two-by-two-cells { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; margin-top: 1.75rem; } .outcome-cell { min-height: 190px; padding: 1.35rem; border: 1px solid var(--line); background: var(--panel); } .outcome-cell > p { margin-bottom: .45rem; color: var(--muted); font-size: .85rem; } .outcome-cell h3 { margin-bottom: 1.3rem; } .outcome-cell strong { display: inline-block; margin-right: .3rem; font-size: 3rem; line-height: 1; } .outcome-cell span { color: var(--muted); } .outcome-cell small { display: block; margin-top: 1rem; color: var(--mint); } .unchanged-broke small, .changed-broke small { color: var(--rose); } .changed-pass small { color: var(--amber); }
