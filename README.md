@@ -12,6 +12,10 @@ outcomes. The result is evidence about whether that rationale was necessary
 for the observed software artifact—not a generic evaluation score or a claim
 to reveal a model's private internal computation.
 
+The public showcase is published at `https://<owner>.github.io/<repository>/`.
+It is deterministic recorded audit evidence: the deployed page is generated from
+the committed offline traces and scores, never from a live model call.
+
 ## Clean setup
 
 Sieve requires Python 3.11+ and Node.js 22+. From a clean repository checkout,
@@ -41,6 +45,13 @@ recorded baselines, 15 single-intervention runs, and 15 score records beneath
 inspect the patch-change/test-stability grid, per-task scores, and limitations.
 Choose a new `--runs-dir` and report path for each invocation: Sieve refuses to
 overwrite existing audit evidence.
+
+For a smaller deterministic check of the first task, run:
+
+GitHub Pages uses the same command in `.github/workflows/pages.yml` to publish
+`site/index.html`. Once, set the repository’s **Settings → Pages → Build and
+deployment → Source** to **GitHub Actions**. The generated page is a standalone
+offline artifact and makes no network request when viewed.
 
 For a smaller deterministic check of the first task, run:
 

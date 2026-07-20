@@ -1,7 +1,12 @@
 [
+  "Does an agent’s reasoning actually drive its code?",
+  "id=\"method\"",
   "two-by-two-grid",
+  "representative-evidence",
+  "result-matrix",
   "<table>",
-  "Honest Limitations",
+  "Honest limitations",
+  "no network request at view time",
   "SIEVE-T1",
   "SIEVE-T5",
   "INT-01",
