@@ -13,13 +13,20 @@ function parseArguments(argumentsList) {
   if (!input || !output || input.startsWith("http") || output.startsWith("http")) {
     throw new Error("input and output must be local file paths");
   }
-  return { input: path.resolve(input), output: path.resolve(output) };
+  const widthIndex = argumentsList.indexOf("--width");
+  const heightIndex = argumentsList.indexOf("--height");
+  const width = widthIndex < 0 ? 1280 : Number(argumentsList[widthIndex + 1]);
+  const height = heightIndex < 0 ? 900 : Number(argumentsList[heightIndex + 1]);
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new Error("--width and --height must be positive integers");
+  }
+  return { input: path.resolve(input), output: path.resolve(output), width, height };
 }
 
-const { input, output } = parseArguments(process.argv.slice(2));
+const { input, output, width, height } = parseArguments(process.argv.slice(2));
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const page = await browser.newPage({ viewport: { width, height } });
   page.on("request", (request) => {
     if (new URL(request.url()).protocol !== "file:") {
       request.abort();

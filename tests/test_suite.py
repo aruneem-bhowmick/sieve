@@ -172,7 +172,10 @@ def test_phase4_dod_full_run_suite_report_has_complete_matrix_grid_table_demo_ca
     report = full_recorded_suite.report_path.read_text(encoding="utf-8")
     assert "two-by-two-grid" in report
     assert report.count("<tbody>") == 1 and report.count("<tr") == 16
-    assert "Honest Limitations" in report
+    assert "Does an agent’s reasoning actually drive its code?" in report
+    assert report.count("<details>") == 2
+    assert "Honest limitations" in report
+    assert "no network request at view time" in report
 
 
 def test_cli_run_suite_short_exits_zero_writes_one_score_and_nonblank_report(

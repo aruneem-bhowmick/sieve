@@ -21,10 +21,11 @@ from sieve.reporting import (
     render_honest_limitations,
     render_report,
     render_two_by_two_grid,
+    select_representative_evidence,
     summarize_two_by_two,
     write_report,
 )
-from sieve.schemas import ScoreRecord, TestResult, TraceRecord
+from sieve.schemas import InterventionMetadata, ScoreRecord, TestResult, TraceRecord
 from sieve.scoring import ScoreRunner
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,8 +40,8 @@ def _copy_score_runs(destination: Path) -> Path:
 
 
 def _table_body(html: str) -> str:
-    return html.split("    <tbody>\n", maxsplit=1)[1].split(
-        "\n    </tbody>", maxsplit=1
+    return html.split("<tbody>\n", maxsplit=1)[1].split(
+        "\n        </tbody>", maxsplit=1
     )[0]
 
 
@@ -218,7 +219,8 @@ def test_render_report_escapes_values_formats_numbers_and_has_exact_table_column
     assert "0.500" in html
     assert (
         "<thead><tr><th>Task</th><th>Intervention</th><th>Patch divergence</th>"
-        "<th>Outcome stability</th><th>Faithfulness score</th></tr></thead>"
+        "<th>Perturbed tests</th><th>Outcome stability</th>"
+        "<th>Faithfulness score</th></tr></thead>"
     ) in html
     assert '<section id="two-by-two-grid"' in html
 
@@ -274,7 +276,7 @@ def test_report_loader_consumes_phase3_score_json_and_sibling_perturbed_trace_ar
         encoding="utf-8",
     )
     rendered = render_report(load_report_data(runs))
-    for value in ("SIEVE-T1", "INT-01", "0.000", "stable"):
+    for value in ("SIEVE-T1", "INT-01", "0.000", "Tests pass"):
         assert value in rendered
 
 
@@ -369,6 +371,97 @@ def test_summarize_two_by_two_rejects_out_of_range_untyped_values() -> None:
         summarize_two_by_two((invalid_entry,))
 
 
+def test_representative_evidence_selection_is_deterministic_and_escapes_trace_metadata() -> (  # noqa: E501
+    None
+):
+    unfaithful = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-<&T1",
+            intervention_type="INT-01",
+            patch_divergence=0.0,
+            outcome_stability=True,
+            faithfulness_score=0.0,
+        ),
+        TestResult(passed=["vitest"], failed=[]),
+        InterventionMetadata(
+            type="INT-01",
+            target_step_id="TSIEVE-T1-S001",
+            target_field="claim",
+            original_value="<original>",
+            replacement_value="",
+        ),
+        "<diff>",
+    )
+    sensitive = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-T3",
+            intervention_type="INT-02",
+            patch_divergence=0.5,
+            outcome_stability=False,
+            faithfulness_score=0.5,
+        ),
+        TestResult(passed=[], failed=["vitest"]),
+        InterventionMetadata(
+            type="INT-02",
+            target_step_id="TSIEVE-T3-S001",
+            target_field="constraint",
+            original_value="Keep @",
+            replacement_value="Keep #",
+        ),
+        "changed",
+    )
+    data = ReportData((unfaithful, sensitive))
+
+    selected = select_representative_evidence(data.entries)
+
+    assert [(item.kind, item.entry.score.task_id) for item in selected] == [
+        ("reasoning-insensitive", "SIEVE-<&T1"),
+        ("constraint-sensitive", "SIEVE-T3"),
+    ]
+    rendered = render_report(data)
+    assert "SIEVE-&lt;&amp;T1" in rendered
+    assert "&lt;original&gt;" in rendered
+    assert "&lt;diff&gt;" in rendered
+    assert rendered.count("<details>") == 2
+
+
+def test_report_keeps_raw_perturbed_tests_distinct_from_outcome_stability() -> None:
+    stable_broken = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-T1",
+            intervention_type="INT-01",
+            patch_divergence=0.5,
+            outcome_stability=True,
+            faithfulness_score=0.5,
+        ),
+        TestResult(passed=[], failed=["same-baseline-failure"]),
+    )
+    changed_passing = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-T2",
+            intervention_type="INT-02",
+            patch_divergence=0.0,
+            outcome_stability=False,
+            faithfulness_score=0.0,
+        ),
+        TestResult(passed=["fixed-baseline-failure"], failed=[]),
+    )
+
+    rendered = render_report(ReportData((stable_broken, changed_passing)))
+
+    assert "<th>Perturbed tests</th><th>Outcome stability</th>" in rendered
+    assert (
+        '<td>Tests broke</td><td><span class="badge stable">Stable</span></td>'
+        in rendered
+    )
+    assert (
+        '<td>Tests pass</td><td><span class="badge changed">Changed</span></td>'
+        in rendered
+    )
+    assert "<dt>Perturbed tests</dt><dd>Tests broke</dd>" in rendered
+    assert '<dt>Outcome stability</dt><dd><span class="badge stable">Stable' in rendered
+
+
 def test_render_two_by_two_grid_has_exactly_four_labeled_cells_and_counts() -> None:
     grid = render_two_by_two_grid(
         TwoByTwoCounts(
@@ -380,10 +473,10 @@ def test_render_two_by_two_grid_has_exactly_four_labeled_cells_and_counts() -> N
     )
     assert grid.count("<article") == 4
     for cell_id, label, count in (
-        ("unchanged-pass", "Tests still pass", "<strong>1</strong> runs"),
-        ("unchanged-broke", "Tests broke", "<strong>2</strong> runs"),
-        ("changed-pass", "Tests still pass", "<strong>3</strong> runs"),
-        ("changed-broke", "Tests broke", "<strong>4</strong> runs"),
+        ("unchanged-pass", "Tests still pass", ">1</strong><span>runs</span>"),
+        ("unchanged-broke", "Tests broke", ">2</strong><span>runs</span>"),
+        ("changed-pass", "Tests still pass", ">3</strong><span>runs</span>"),
+        ("changed-broke", "Tests broke", ">4</strong><span>runs</span>"),
     ):
         assert f'id="{cell_id}"' in grid
         assert label in grid
@@ -396,9 +489,9 @@ def test_render_report_inserts_grid_before_existing_score_table_and_counts_every
     data = load_report_data(_copy_score_runs(tmp_path))
     rendered = render_report(data)
     assert rendered.index('id="two-by-two-grid"') < rendered.index("<table>")
-    assert rendered.count(" runs</p></article>") == 4
-    assert "<strong>1</strong> runs" in rendered
-    assert "<strong>0</strong> runs" in rendered
+    assert rendered.count('class="outcome-cell ') == 4
+    assert ">1</strong><span>runs</span>" in rendered
+    assert ">0</strong><span>runs</span>" in rendered
     assert sum(
         (
             summarize_two_by_two(data.entries).unchanged_pass,
@@ -418,7 +511,7 @@ def test_offline_recorded_score_batch_with_actual_perturbed_test_results_renders
     data = load_report_data(runs)
     counts = summarize_two_by_two(data.entries)
     assert sum(vars(counts).values()) == len(data.entries)
-    assert "Causal audit outcomes" in render_report(data)
+    assert "What changed when the rationale changed?" in render_report(data)
 
 
 def test_phase4_report_headline_grid_is_legible_and_complete_for_all_four_patch_and_test_outcome_categories() -> (  # noqa: E501
@@ -432,7 +525,7 @@ def test_phase4_report_headline_grid_is_legible_and_complete_for_all_four_patch_
         "changed-broke",
     ):
         assert f'id="{cell_id}"' in rendered
-        assert "<strong>1</strong> runs" in rendered
+        assert ">1</strong><span>runs</span>" in rendered
 
 
 def test_two_by_two_grid_smoke_one_unchanged_passing_entry_renders_nonblank_cell() -> (
@@ -440,7 +533,7 @@ def test_two_by_two_grid_smoke_one_unchanged_passing_entry_renders_nonblank_cell
 ):
     rendered = render_report(ReportData((_entry(0.0, []),)))
     assert 'id="unchanged-pass"' in rendered
-    assert "<strong>1</strong> runs" in rendered
+    assert ">1</strong><span>runs</span>" in rendered
 
 
 def test_grid_counts_sum_to_input_count_and_no_entry_appears_in_multiple_bins() -> None:
@@ -464,8 +557,8 @@ def test_static_report_has_four_visible_grid_cells_with_heading_readable_count_t
 ):
     rendered = render_report(_four_category_data())
     assert ".two-by-two-cells { display: grid;" in rendered
-    assert rendered.count("<article") == 4
-    assert "Causal audit outcomes" in rendered
+    assert rendered.count('class="outcome-cell ') == 4
+    assert "What changed when the rationale changed?" in rendered
     assert "Tests still pass" in rendered
     assert "Tests broke" in rendered
 
@@ -477,7 +570,7 @@ def test_render_honest_limitations_has_semantic_section_heading_ordered_list_and
     assert rendered.startswith(
         '<section id="honest-limitations" aria-labelledby="honest-limitations-heading">'
     )
-    assert '<h2 id="honest-limitations-heading">Honest Limitations</h2>' in rendered
+    assert '<h2 id="honest-limitations-heading">Honest limitations</h2>' in rendered
     assert rendered.count("<li>") == 3
     assert "<em>necessary</em>" in rendered
     assert "<em>to a schema the model was told to fill out</em>" in rendered
@@ -566,7 +659,7 @@ def test_rendered_report_exposes_visible_honest_limitations_heading_and_three_re
     parser = _LimitationsParser()
     parser.feed(render_report(ReportData((_entry(0.0, []),))))
     parser.close()
-    assert parser.heading == "Honest Limitations"
+    assert parser.heading == "Honest limitations"
     assert parser.items == list(HONEST_LIMITATIONS)
 
 
