@@ -404,12 +404,13 @@ def _render_evidence_card(item: RepresentativeEvidence) -> str:
     intervention = entry.intervention
     original = intervention.original_value or "(blank)"
     replacement = intervention.replacement_value or "(blank)"
-    test_outcome = _test_outcome(entry)
+    test_outcome = _perturbed_test_outcome(entry)
+    stability = _stability_label(entry)
     diff = html.escape(entry.final_diff or "No final diff was recorded.")
     return f"""    <article class="evidence-card {item.kind}">
       <p class="card-kicker">{html.escape(item.heading)}</p>
       <h3>{html.escape(entry.score.task_id)} · {html.escape(entry.score.intervention_type)}</h3>
-      <dl><div><dt>Field edited</dt><dd>{html.escape(intervention.target_field or "unknown")}</dd></div><div><dt>Patch divergence</dt><dd>{entry.score.patch_divergence:.3f}</dd></div><div><dt>Test outcome</dt><dd><span class="badge {_outcome_class(entry)}">{test_outcome}</span></dd></div></dl>
+      <dl><div><dt>Field edited</dt><dd>{html.escape(intervention.target_field or "unknown")}</dd></div><div><dt>Patch divergence</dt><dd>{entry.score.patch_divergence:.3f}</dd></div><div><dt>Perturbed tests</dt><dd>{test_outcome}</dd></div><div><dt>Outcome stability</dt><dd><span class="badge {_stability_class(entry)}">{stability}</span></dd></div></dl>
       <p class="swap"><span>Original</span>{html.escape(original)}<span>Replacement</span>{html.escape(replacement)}</p>
       <details><summary>View counterfactual evidence</summary><p>The run resumed after replacing the stated rationale value above. Its observed outcome is shown here; Sieve does not infer a complete internal causal explanation.</p><pre>{diff}</pre></details>
     </article>"""
@@ -420,7 +421,7 @@ def _render_matrix(rows: str) -> str:
       <p class="eyebrow">Complete audit matrix</p>
       <h2 id="result-matrix-heading">Every task × intervention result</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Task</th><th>Intervention</th><th>Patch divergence</th><th>Test outcome</th><th>Faithfulness score</th></tr></thead>
+        <thead><tr><th>Task</th><th>Intervention</th><th>Patch divergence</th><th>Perturbed tests</th><th>Outcome stability</th><th>Faithfulness score</th></tr></thead>
         <tbody>
 {rows}
         </tbody>
@@ -432,12 +433,16 @@ def _render_footer() -> str:
     return """    <footer><strong>Sieve</strong><span>This page is a self-contained static report generated from persisted recorded traces and scores. It makes no network request at view time.</span></footer>"""
 
 
-def _test_outcome(entry: ReportEntry) -> str:
+def _perturbed_test_outcome(entry: ReportEntry) -> str:
     return "Tests broke" if entry.perturbed_test_result.failed else "Tests pass"
 
 
-def _outcome_class(entry: ReportEntry) -> str:
-    return "broke" if entry.perturbed_test_result.failed else "pass"
+def _stability_label(entry: ReportEntry) -> str:
+    return "Stable" if entry.score.outcome_stability else "Changed"
+
+
+def _stability_class(entry: ReportEntry) -> str:
+    return "stable" if entry.score.outcome_stability else "changed"
 
 
 def _render_row(entry: ReportEntry) -> str:
@@ -447,7 +452,8 @@ def _render_row(entry: ReportEntry) -> str:
         f"<td>{html.escape(score.task_id)}</td>"
         f"<td>{html.escape(score.intervention_type)}</td>"
         f"<td>{score.patch_divergence:.3f}</td>"
-        f'<td><span class="badge {_outcome_class(entry)}">{_test_outcome(entry)}</span></td>'
+        f"<td>{_perturbed_test_outcome(entry)}</td>"
+        f'<td><span class="badge {_stability_class(entry)}">{_stability_label(entry)}</span></td>'
         f"<td>{score.faithfulness_score:.3f}</td>"
         "</tr>"
     )
@@ -471,7 +477,7 @@ _REPORT_CSS = """    :root { color-scheme: dark; --bg: #080d12; --panel: #101922
     .method-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 2rem 0 0; padding: 1px; background: var(--line); list-style: none; } .method-steps li { padding: 1.5rem; background: var(--panel); } .method-steps span { display: block; margin-bottom: 1.25rem; color: var(--mint); font-size: .8rem; font-weight: 800; } .method-steps strong { display: block; font-size: 1.25rem; } .method-steps p { margin: .35rem 0 0; color: var(--muted); }
     .section-heading > p:last-child, .summary-copy { color: var(--muted); } .two-by-two-cells { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; margin-top: 1.75rem; } .outcome-cell { min-height: 190px; padding: 1.35rem; border: 1px solid var(--line); background: var(--panel); } .outcome-cell > p { margin-bottom: .45rem; color: var(--muted); font-size: .85rem; } .outcome-cell h3 { margin-bottom: 1.3rem; } .outcome-cell strong { display: inline-block; margin-right: .3rem; font-size: 3rem; line-height: 1; } .outcome-cell span { color: var(--muted); } .outcome-cell small { display: block; margin-top: 1rem; color: var(--mint); } .unchanged-broke small, .changed-broke small { color: var(--rose); } .changed-pass small { color: var(--amber); }
     .summary-copy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; max-width: 900px; } .summary-copy strong { color: var(--text); }
-    .evidence-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; } .evidence-card { padding: 1.5rem; border: 1px solid var(--line); background: var(--panel); } .evidence-card.reasoning-insensitive { border-top: 3px solid var(--mint); } .evidence-card.constraint-sensitive { border-top: 3px solid var(--rose); } .evidence-card dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; } .evidence-card dt { color: var(--muted); font-size: .75rem; } .evidence-card dd { margin: .2rem 0 0; font-weight: 700; overflow-wrap: anywhere; } .badge { display: inline-block; padding: .18rem .45rem; border-radius: 100px; font-size: .78rem; font-weight: 750; white-space: nowrap; } .badge.pass { background: #173d34; color: var(--mint); } .badge.broke { background: #48262e; color: #ffbdc0; } .swap { display: grid; gap: .25rem; margin: 1.25rem 0; padding: 1rem; border-left: 2px solid var(--line); background: #0a1118; overflow-wrap: anywhere; } .swap span { color: var(--muted); font-size: .72rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; } details { border-top: 1px solid var(--line); padding-top: .9rem; } summary { cursor: pointer; color: var(--mint); font-weight: 700; } pre { max-height: 14rem; overflow: auto; padding: .75rem; background: #070b0f; color: #cedae1; font-size: .75rem; white-space: pre-wrap; }
+    .evidence-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; } .evidence-card { padding: 1.5rem; border: 1px solid var(--line); background: var(--panel); } .evidence-card.reasoning-insensitive { border-top: 3px solid var(--mint); } .evidence-card.constraint-sensitive { border-top: 3px solid var(--rose); } .evidence-card dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; } .evidence-card dt { color: var(--muted); font-size: .75rem; } .evidence-card dd { margin: .2rem 0 0; font-weight: 700; overflow-wrap: anywhere; } .badge { display: inline-block; padding: .18rem .45rem; border-radius: 100px; font-size: .78rem; font-weight: 750; white-space: nowrap; } .badge.stable { background: #173d34; color: var(--mint); } .badge.changed { background: #483917; color: var(--amber); } .swap { display: grid; gap: .25rem; margin: 1.25rem 0; padding: 1rem; border-left: 2px solid var(--line); background: #0a1118; overflow-wrap: anywhere; } .swap span { color: var(--muted); font-size: .72rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; } details { border-top: 1px solid var(--line); padding-top: .9rem; } summary { cursor: pointer; color: var(--mint); font-weight: 700; } pre { max-height: 14rem; overflow: auto; padding: .75rem; background: #070b0f; color: #cedae1; font-size: .75rem; white-space: pre-wrap; }
     .table-wrap { overflow-x: auto; border: 1px solid var(--line); } table { width: 100%; border-collapse: collapse; min-width: 650px; } th, td { padding: .9rem 1rem; border-bottom: 1px solid var(--line); text-align: left; } th { color: var(--muted); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; } tbody tr:last-child td { border-bottom: 0; }
     #honest-limitations { margin: 4.5rem 0; padding: 1.5rem; border: 1px solid #795f35; background: #251d12; } #honest-limitations h2 { margin-bottom: 1rem; } #honest-limitations ol { max-width: 900px; margin: 0; padding-left: 1.25rem; } #honest-limitations li + li { margin-top: .7rem; }
     footer { display: flex; gap: 1rem; justify-content: space-between; padding: 2rem 0 3rem; color: var(--muted); font-size: .82rem; } footer strong { color: var(--text); } footer span { max-width: 640px; text-align: right; }

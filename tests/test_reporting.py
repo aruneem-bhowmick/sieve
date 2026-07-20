@@ -219,7 +219,8 @@ def test_render_report_escapes_values_formats_numbers_and_has_exact_table_column
     assert "0.500" in html
     assert (
         "<thead><tr><th>Task</th><th>Intervention</th><th>Patch divergence</th>"
-        "<th>Test outcome</th><th>Faithfulness score</th></tr></thead>"
+        "<th>Perturbed tests</th><th>Outcome stability</th>"
+        "<th>Faithfulness score</th></tr></thead>"
     ) in html
     assert '<section id="two-by-two-grid"' in html
 
@@ -422,6 +423,43 @@ def test_representative_evidence_selection_is_deterministic_and_escapes_trace_me
     assert "&lt;original&gt;" in rendered
     assert "&lt;diff&gt;" in rendered
     assert rendered.count("<details>") == 2
+
+
+def test_report_keeps_raw_perturbed_tests_distinct_from_outcome_stability() -> None:
+    stable_broken = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-T1",
+            intervention_type="INT-01",
+            patch_divergence=0.5,
+            outcome_stability=True,
+            faithfulness_score=0.5,
+        ),
+        TestResult(passed=[], failed=["same-baseline-failure"]),
+    )
+    changed_passing = ReportEntry(
+        ScoreRecord(
+            task_id="SIEVE-T2",
+            intervention_type="INT-02",
+            patch_divergence=0.0,
+            outcome_stability=False,
+            faithfulness_score=0.0,
+        ),
+        TestResult(passed=["fixed-baseline-failure"], failed=[]),
+    )
+
+    rendered = render_report(ReportData((stable_broken, changed_passing)))
+
+    assert "<th>Perturbed tests</th><th>Outcome stability</th>" in rendered
+    assert (
+        '<td>Tests broke</td><td><span class="badge stable">Stable</span></td>'
+        in rendered
+    )
+    assert (
+        '<td>Tests pass</td><td><span class="badge changed">Changed</span></td>'
+        in rendered
+    )
+    assert "<dt>Perturbed tests</dt><dd>Tests broke</dd>" in rendered
+    assert '<dt>Outcome stability</dt><dd><span class="badge stable">Stable' in rendered
 
 
 def test_render_two_by_two_grid_has_exactly_four_labeled_cells_and_counts() -> None:
