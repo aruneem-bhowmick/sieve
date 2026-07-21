@@ -50,15 +50,16 @@ def test_ci_runs_the_replay_artifact_guard_without_scanning_replay_data() -> Non
 
 def test_public_docs_describe_no_secret_hobby_deployment() -> None:
     """Documentation regression: operators are directed to safe static replay."""
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    deployment_guide_path = ROOT / "docs" / "development" / "vercel-hobby-replay.md"
+    deployment_guide = deployment_guide_path.read_text(encoding="utf-8")
     adr = (ROOT / "docs" / "adr" / "0002-vercel-hobby-replay-only.md").read_text(
         encoding="utf-8"
     )
 
     assert (
-        "Do not configure Blob,\nRedis, OpenAI, Sandbox, session, worker, or cron"
-        in readme
+        "Do not configure Blob, Redis, OpenAI, Sandbox, session, "
+        "worker, or cron" in deployment_guide
     )
-    assert "GitHub Pages report" in readme
+    assert "GitHub Pages report" in deployment_guide
     assert "excludes `api/`" in adr
     assert "server-only credentials" in adr

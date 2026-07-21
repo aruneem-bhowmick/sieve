@@ -21,10 +21,10 @@ Mechanical pairwise intersection: `{src/sieve/replay.py, tests/test_replay.py} â
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor per prompt in docs/prompts/phase-1/WAVES.md wave 1:
-- docs/prompts/phase-1/SIV-INT-001-context-replay.md
-- docs/prompts/phase-1/SIV-INT-004-step-budget-guard.md
-Each executor must read docs/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor per prompt in docs/development/prompts/phase-1/WAVES.md wave 1:
+- docs/development/prompts/phase-1/SIV-INT-001-context-replay.md
+- docs/development/prompts/phase-1/SIV-INT-004-step-budget-guard.md
+Each executor must read docs/development/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Wave 2
@@ -44,7 +44,7 @@ Mechanical pairwise comparison: one prompt has no sibling, so there are zero wri
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-1/SIV-INT-002-resume-from-step.md only after Wave 1 passes the integration checkpoint. The executor must read docs/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-1/SIV-INT-002-resume-from-step.md only after Wave 1 passes the integration checkpoint. The executor must read docs/development/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Wave 3
@@ -64,7 +64,7 @@ Mechanical pairwise comparison: one prompt has no sibling, so there are zero wri
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-1/SIV-INT-003-no-op-fidelity.md only after Wave 2 passes the integration checkpoint. The executor must read docs/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-1/SIV-INT-003-no-op-fidelity.md only after Wave 2 passes the integration checkpoint. The executor must read docs/development/prompts/phase-1/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Checkpoint after every wave

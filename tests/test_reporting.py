@@ -240,14 +240,16 @@ def test_report_rows_have_stable_fragment_anchors_for_evidence_references() -> N
 
 
 def test_curated_examples_link_to_each_frozen_trace_score_and_report_row() -> None:
-    document = (ROOT / "docs" / "audit-examples.md").read_text(encoding="utf-8")
+    document = (ROOT / "docs" / "build-week" / "evidence.md").read_text(
+        encoding="utf-8"
+    )
     for evidence_path in (
-        "../tests/fixtures/phase3/t3-int02/baseline-trace.json",
-        "../tests/fixtures/phase3/t3-int02/perturbed-trace.json",
-        "../tests/fixtures/phase3/t3-int02/expected-score.json",
-        "../tests/fixtures/phase3/t1-int01/baseline-trace.json",
-        "../tests/fixtures/phase3/t1-int01/perturbed-trace.json",
-        "../tests/fixtures/phase3/t1-int01/expected-score.json",
+        "../../tests/fixtures/phase3/t3-int02/baseline-trace.json",
+        "../../tests/fixtures/phase3/t3-int02/perturbed-trace.json",
+        "../../tests/fixtures/phase3/t3-int02/expected-score.json",
+        "../../tests/fixtures/phase3/t1-int01/baseline-trace.json",
+        "../../tests/fixtures/phase3/t1-int01/perturbed-trace.json",
+        "../../tests/fixtures/phase3/t1-int01/expected-score.json",
     ):
         assert f"]({evidence_path})" in document
     for anchor in ("score-SIEVE-T3-INT-02", "score-SIEVE-T1-INT-01"):

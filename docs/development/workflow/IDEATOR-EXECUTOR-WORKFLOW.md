@@ -28,7 +28,7 @@ skill. Confirm the wave plan before finishing.
 ```
 
 `sieve_ideator` will read `SIEVE-SPEC.md`, run the skill's full workflow,
-and produce `docs/prompts/phase-0/` containing `_PREAMBLE.md`, one prompt
+and produce `docs/development/prompts/phase-0/` containing `_PREAMBLE.md`, one prompt
 per requirement, `INDEX.md`, `traceability.md`, and `WAVES.md`.
 
 **Check `WAVES.md` yourself before moving on.** It tells you, per wave, how
@@ -51,7 +51,7 @@ explicitly, so you're guaranteed the pinned model and sandbox settings from
 its TOML file, not whatever Codex would otherwise pick.
 
 ```
-Spawn one sieve_executor per prompt in docs/prompts/phase-0/WAVES.md wave 1:
+Spawn one sieve_executor per prompt in docs/development/prompts/phase-0/WAVES.md wave 1:
 - SIV-OPS-001
 - SIV-SCH-001
 Wait for all of them, then summarize each: requirement ID, files touched,
@@ -78,12 +78,12 @@ If you do use it, the row-to-worker mapping looks like this:
 
 ```
 Build /tmp/phase0-wave1.csv with columns requirement_id,prompt_path — one
-row per prompt in docs/prompts/phase-0/WAVES.md wave 1.
+row per prompt in docs/development/prompts/phase-0/WAVES.md wave 1.
 
 Then call spawn_agents_on_csv with:
 - csv_path: /tmp/phase0-wave1.csv
 - id_column: requirement_id
-- instruction: "You are executing docs/prompts/phase-0/{prompt_path} per
+- instruction: "You are executing docs/development/prompts/phase-0/{prompt_path} per
   the sieve_executor role defined in .codex/agents/sieve-executor.toml —
   follow its developer_instructions exactly, including the strict
   file-boundary rule. Read _PREAMBLE.md in the same directory first.

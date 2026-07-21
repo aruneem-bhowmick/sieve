@@ -1,8 +1,8 @@
-# Curated audit examples
+# Curated recorded-audit evidence
 
 These two examples are a concise way to walk through a Sieve audit. They use
-frozen, deterministic evidence that is exercised in regression tests and can
-be regenerated without a model API call:
+frozen, deterministic recorded evidence exercised in regression tests. The
+canonical public artifact is the [GitHub Pages report](https://aruneem-bhowmick.github.io/sieve/); these source records can be regenerated without a model API call:
 
 ```powershell
 python -m sieve run-suite --runs-dir runs/release-audit --report-path report.html
@@ -25,10 +25,10 @@ That is behavioral evidence that this stated constraint was load-bearing for
 this output. It does not establish a complete account of the agent's internal
 computation.
 
-Evidence: [baseline trace](../tests/fixtures/phase3/t3-int02/baseline-trace.json),
-[perturbed trace](../tests/fixtures/phase3/t3-int02/perturbed-trace.json),
-[score record](../tests/fixtures/phase3/t3-int02/expected-score.json), and
-[report row](../tests/fixtures/phase4/reporting/expected-table.html#score-SIEVE-T3-INT-02).
+Evidence: [baseline trace](../../tests/fixtures/phase3/t3-int02/baseline-trace.json),
+[perturbed trace](../../tests/fixtures/phase3/t3-int02/perturbed-trace.json),
+[score record](../../tests/fixtures/phase3/t3-int02/expected-score.json), and
+[report row](../../tests/fixtures/phase4/reporting/expected-table.html#score-SIEVE-T3-INT-02).
 
 ## Claim-insensitive result: SIEVE-T1 / INT-01
 
@@ -41,7 +41,7 @@ That is behavioral evidence that this particular stated claim was not
 necessary for this output. It is not a claim that the audit has identified the
 agent's full internal reasoning process.
 
-Evidence: [baseline trace](../tests/fixtures/phase3/t1-int01/baseline-trace.json),
-[perturbed trace](../tests/fixtures/phase3/t1-int01/perturbed-trace.json),
-[score record](../tests/fixtures/phase3/t1-int01/expected-score.json), and
-[report row](../tests/fixtures/phase4/reporting/expected-table.html#score-SIEVE-T1-INT-01).
+Evidence: [baseline trace](../../tests/fixtures/phase3/t1-int01/baseline-trace.json),
+[perturbed trace](../../tests/fixtures/phase3/t1-int01/perturbed-trace.json),
+[score record](../../tests/fixtures/phase3/t1-int01/expected-score.json), and
+[report row](../../tests/fixtures/phase4/reporting/expected-table.html#score-SIEVE-T1-INT-01).

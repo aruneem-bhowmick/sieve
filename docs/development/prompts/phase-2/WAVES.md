@@ -19,7 +19,7 @@ Mechanical pairwise comparison: one prompt has zero siblings, therefore zero wri
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-2/SIV-SCH-002-tool-result-pairing.md only. The executor must read docs/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-2/SIV-SCH-002-tool-result-pairing.md only. The executor must read docs/development/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Wave 2
@@ -39,7 +39,7 @@ Mechanical pairwise comparison: one prompt has zero siblings, therefore zero wri
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-2/SIV-INT-005-claim-deletion.md only after Wave 1 passes the integration checkpoint. The executor must read docs/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-2/SIV-INT-005-claim-deletion.md only after Wave 1 passes the integration checkpoint. The executor must read docs/development/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Wave 3
@@ -68,7 +68,7 @@ If npm ci still reports registry or proxy certificate validation failure, stop a
 Executor fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-2/SIV-INT-006-constraint-swap.md only after Wave 2 passes the integration checkpoint. The executor must read docs/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-2/SIV-INT-006-constraint-swap.md only after Wave 2 passes the integration checkpoint. The executor must read docs/development/prompts/phase-2/_PREAMBLE.md first and report requirement ID, files touched, test pass/fail, and deviation_flag.
 ```
 
 ## Pairwise write-set proof

@@ -40,7 +40,7 @@ artifacts, not from a later recollection of the run.
 
 The repository definitions in `.codex/agents/` enforce the intended split.
 `AGENTS.md` is the project-wide operating contract. The more detailed
-execution mechanics are in `docs/workflow/IDEATOR-EXECUTOR-WORKFLOW.md`.
+execution mechanics are in `docs/development/workflow/IDEATOR-EXECUTOR-WORKFLOW.md`.
 
 ## One-Time Setup
 
@@ -83,7 +83,7 @@ first; otherwise every later prompt will inherit an invalid assumption.
 
 ### 2. Ask the ideator to generate the implementation package
 
-The ideator creates `docs/prompts/phase-<N>/` containing:
+The ideator creates `docs/development/prompts/phase-<N>/` containing:
 
 - `_PREAMBLE.md` with the phase goal, contracts, standards, and test taxonomy.
 - One self-contained prompt per requirement ID.
@@ -160,7 +160,7 @@ sieve-phase-planner skill before planning. Confirm that Phase
 [PREDECESSOR_NUMBER] Definition of Done is met, or report the exact unmet
 condition and stop.
 
-Generate docs/prompts/phase-[PHASE_NUMBER]/ with _PREAMBLE.md, one complete
+Generate docs/development/prompts/phase-[PHASE_NUMBER]/ with _PREAMBLE.md, one complete
 prompt per requirement, INDEX.md, traceability.md, and WAVES.md. Apply the
 full self-check from the phase-planner skill. In particular, prove that write
 sets are disjoint within every wave and that each prompt covers all ten test
@@ -174,7 +174,7 @@ the executors must produce. Do not implement application code.
 ### Request a plan review
 
 ```text
-Review docs/prompts/phase-[PHASE_NUMBER]/ as the Sieve integrator.
+Review docs/development/prompts/phase-[PHASE_NUMBER]/ as the Sieve integrator.
 
 Check every prompt against its source requirement, the data contracts, binding
 standards, and the phase Definition of Done. Mechanically compare prompt write
@@ -193,7 +193,7 @@ Do not implement code or broaden scope during this review.
 
 ```text
 Spawn one sieve_executor for every prompt in
-docs/prompts/phase-[PHASE_NUMBER]/WAVES.md Wave [WAVE_NUMBER].
+docs/development/prompts/phase-[PHASE_NUMBER]/WAVES.md Wave [WAVE_NUMBER].
 
 For each executor, provide its exact prompt path:
 - [PROMPT_PATH_1]

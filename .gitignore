@@ -14,3 +14,14 @@ runs/
 .demo-report-v2.html
 public/
 .sieve-build-venv/
+.preview-report*.html
+.preview-runs/
+.replay-modern.png
+.report-before.png
+.report-generated-before.png
+.report-modern.png
+report.html
+site/
+.bootstrap-runs/
+.showcase-runs/
+docs/demo-video/output/

@@ -41,7 +41,7 @@ changes follow the ADR process in `SIEVE-SPEC.md` §14.
   exhaustively-tested prompt format this project depends on for
   reproducibility.
 - This project uses an ideator/executor subagent split (see
-  `docs/workflow/IDEATOR-EXECUTOR-WORKFLOW.md`): a high-reasoning agent
+  `docs/development/workflow/IDEATOR-EXECUTOR-WORKFLOW.md`): a high-reasoning agent
   (`sieve_ideator`) plans a phase into granular prompts; narrow
   lower-cost agents (`sieve_executor`) implement individual prompts
   concurrently. Follow that workflow document's wave-based concurrency
