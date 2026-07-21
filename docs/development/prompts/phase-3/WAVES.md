@@ -35,10 +35,10 @@ two executors may run concurrently.
 Fan-out invocation:
 
 ```text
-Spawn one sieve_executor for every prompt in docs/prompts/phase-3/WAVES.md Wave 1:
-- docs/prompts/phase-3/SIV-MET-001-ast-patch-divergence.md
-- docs/prompts/phase-3/SIV-MET-002-outcome-stability.md
-Each executor must read docs/prompts/phase-3/_PREAMBLE.md first, honor its
+Spawn one sieve_executor for every prompt in docs/development/prompts/phase-3/WAVES.md Wave 1:
+- docs/development/prompts/phase-3/SIV-MET-001-ast-patch-divergence.md
+- docs/development/prompts/phase-3/SIV-MET-002-outcome-stability.md
+Each executor must read docs/development/prompts/phase-3/_PREAMBLE.md first, honor its
 declared write set, and report requirement ID, files touched, commands run,
 tests passed, and deviation_flag. Do not start Wave 2 yet.
 ```
@@ -58,7 +58,7 @@ metric interfaces.
 Fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-3/SIV-MET-003-score-computation-and-degeneracy.md only after Wave 1 passes the integration checkpoint. The executor must read docs/prompts/phase-3/_PREAMBLE.md first and report requirement ID, files touched, commands run, tests passed, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-3/SIV-MET-003-score-computation-and-degeneracy.md only after Wave 1 passes the integration checkpoint. The executor must read docs/development/prompts/phase-3/_PREAMBLE.md first and report requirement ID, files touched, commands run, tests passed, and deviation_flag.
 ```
 
 ## Wave 3 — Golden regression lock
@@ -76,7 +76,7 @@ Wave 2 production score path.
 Fan-out invocation:
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-3/SIV-OPS-002-golden-score-regression.md only after Wave 2 passes the integration checkpoint. The executor must read docs/prompts/phase-3/_PREAMBLE.md first and report requirement ID, files touched, commands run, tests passed, and deviation_flag.
+Spawn one sieve_executor for docs/development/prompts/phase-3/SIV-OPS-002-golden-score-regression.md only after Wave 2 passes the integration checkpoint. The executor must read docs/development/prompts/phase-3/_PREAMBLE.md first and report requirement ID, files touched, commands run, tests passed, and deviation_flag.
 ```
 
 ## Phase-close evidence

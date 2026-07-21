@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNBOOK = ROOT / "docs" / "OFFLINE-DEMO-RUNBOOK.md"
+RUNBOOK = ROOT / "docs" / "build-week" / "offline-demo-runbook.md"
 
 
 def test_offline_demo_runbook_preserves_the_recorded_suite_and_recovery_contract() -> (

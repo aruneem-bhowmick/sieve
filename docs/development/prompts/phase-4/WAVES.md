@@ -24,10 +24,10 @@ Mechanical pairwise write-set comparison:
 Fan out exactly as follows:
 
 ```text
-Spawn one sieve_executor per prompt in docs/prompts/phase-4/WAVES.md wave 1:
-- SIV-INT-007 — docs/prompts/phase-4/SIV-INT-007-hypothesis-flip.md
-- SIV-TSK-002 — docs/prompts/phase-4/SIV-TSK-002-add-t2-t4-t5-fixtures.md
-- SIV-RPT-001 — docs/prompts/phase-4/SIV-RPT-001-html-report-generator.md
+Spawn one sieve_executor per prompt in docs/development/prompts/phase-4/WAVES.md wave 1:
+- SIV-INT-007 — docs/development/prompts/phase-4/SIV-INT-007-hypothesis-flip.md
+- SIV-TSK-002 — docs/development/prompts/phase-4/SIV-TSK-002-add-t2-t4-t5-fixtures.md
+- SIV-RPT-001 — docs/development/prompts/phase-4/SIV-RPT-001-html-report-generator.md
 Wait for all of them, then summarize each: requirement ID, files touched, test pass/fail, and any reported deviation or out-of-scope-write flag.
 ```
 
@@ -42,7 +42,7 @@ manual-reviewed screenshot renderer. It must not be run concurrently with
 any other Phase 4 prompt.
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-4/SIV-RPT-002-headline-two-by-two-grid.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
+Spawn one sieve_executor for docs/development/prompts/phase-4/SIV-RPT-002-headline-two-by-two-grid.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
 ```
 
 After the executor reports clean, the integrator—not the executor—must run the full mandatory project gate stated above and inspect `git diff --check` before accepting this wave.
@@ -56,7 +56,7 @@ reporting module and report tests; this single-prompt wave is vacuously
 write-disjoint.
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-4/SIV-RPT-003-honest-limitations.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
+Spawn one sieve_executor for docs/development/prompts/phase-4/SIV-RPT-003-honest-limitations.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
 ```
 
 ## Wave 4 — full-suite orchestration
@@ -68,5 +68,5 @@ surfaces after their owners are complete; this single-prompt wave is
 vacuously write-disjoint.
 
 ```text
-Spawn one sieve_executor for docs/prompts/phase-4/SIV-OPS-003-run-suite-command.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
+Spawn one sieve_executor for docs/development/prompts/phase-4/SIV-OPS-003-run-suite-command.md. Read _PREAMBLE.md first. Report requirement ID, files touched, test pass/fail, and any deviation flag.
 ```

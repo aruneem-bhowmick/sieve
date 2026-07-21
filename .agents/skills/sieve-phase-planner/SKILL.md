@@ -58,7 +58,7 @@ Locate these yourself; only ask the user if genuinely not found:
 - **The spec.** Default `SIEVE-SPEC.md` at the repo root.
 - **The target phase.** A phase number or name (e.g. "Phase 2" /
   "Intervention Core"). Map names to numbers using §13's phase headings.
-- **The output location.** Default `docs/prompts/phase-<N>/`. Create it if
+- **The output location.** Default `docs/development/prompts/phase-<N>/`. Create it if
   absent.
 
 ## Workflow
@@ -195,7 +195,7 @@ omit a row.
 ## Output layout
 
 ```
-docs/prompts/phase-<N>/
+docs/development/prompts/phase-<N>/
 ├── _PREAMBLE.md
 ├── <requirement-id>-<slug>.md   (one per requirement)
 ├── ...
@@ -211,7 +211,7 @@ docs/prompts/phase-<N>/
 - **`WAVES.md`** — new artifact. One section per wave: the prompt IDs in
   that wave, confirmation their write-sets are disjoint, and the exact
   `sieve_executor` fan-out invocation for that wave (see
-  `docs/workflow/IDEATOR-EXECUTOR-WORKFLOW.md` for the invocation
+  `docs/development/workflow/IDEATOR-EXECUTOR-WORKFLOW.md` for the invocation
   template this section should follow).
 
 ## Self-check before finishing
