@@ -16,7 +16,7 @@ def test_vercel_profile_is_static_and_excludes_server_source() -> None:
         "buildCommand": (
             "python -m venv .sieve-build-venv && "
             ".sieve-build-venv/bin/python -m pip install -e . && "
-            "npm ci && npm run demo:build"
+            'npm ci && PATH=".sieve-build-venv/bin:$PATH" npm run demo:build'
         ),
         "outputDirectory": "public",
     }
