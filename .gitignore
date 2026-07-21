@@ -14,3 +14,4 @@ runs/
 .demo-report-v2.html
 public/
 .sieve-build-venv/
+docs/demo-video/output/
