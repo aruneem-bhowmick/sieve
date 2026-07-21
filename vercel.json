@@ -3,6 +3,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/live-worker.ts": { "maxDuration": 900 },
+    "api/jobs.ts": { "maxDuration": 900 },
     "api/**/*.ts": { "maxDuration": 60 }
   },
   "crons": [{ "path": "/api/cleanup", "schedule": "0 */6 * * *" }]

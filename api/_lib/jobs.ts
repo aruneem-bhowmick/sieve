@@ -4,13 +4,23 @@ import { put } from "@vercel/blob";
 import { waitUntil } from "@vercel/functions";
 import { Redis } from "@upstash/redis";
 
-import { cookieValue, readSession } from "./session";
+import { cookieValue, readSession, secureEqual } from "./session";
 import { type SubmittedTask, validateSubmission } from "./submission";
 
 const DAY_SECONDS = 24 * 60 * 60;
 const RESULT_SECONDS = DAY_SECONDS;
 
-export interface LiveJob { id: string; owner: string; status: "queued" | "failed"; createdAt: number; expiresAt: number; }
+export type LiveJobStatus = "queued" | "running" | "complete" | "failed";
+
+export interface LiveJob {
+  id: string;
+  owner: string;
+  status: LiveJobStatus;
+  createdAt: number;
+  expiresAt: number;
+  report_path?: string;
+  error?: string;
+}
 
 function redis(): Redis { return Redis.fromEnv(); }
 
@@ -26,7 +36,7 @@ export function authenticated(request: Request): { id: string; csrf: string } | 
 export async function createJob(request: Request, body: unknown): Promise<LiveJob> {
   const session = authenticated(request);
   if (!session) throw new Response("Unauthorized", { status: 401 });
-  if (request.headers.get("x-sieve-csrf") !== session.csrf) throw new Response("CSRF validation failed", { status: 403 });
+  if (!secureEqual(request.headers.get("x-sieve-csrf") ?? "", session.csrf)) throw new Response("CSRF validation failed", { status: 403 });
   if (!configured()) throw new Response("Live demo is not configured.", { status: 503 });
   const submission = validateSubmission(body);
   const store = redis(); const today = new Date().toISOString().slice(0, 10);
@@ -55,12 +65,13 @@ async function runQueuedSuite(store: Redis, job: LiveJob, submission: { tasks: S
   const worker = process.env.SIEVE_LIVE_WORKER_URL;
   try {
     if (!worker) throw new Error("SIEVE_LIVE_WORKER_URL is not configured");
+    await store.set(`sieve:job:${job.id}`, { ...job, status: "running" }, { ex: RESULT_SECONDS });
     const response = await fetch(worker, { method: "POST", headers: { "content-type": "application/json", "x-sieve-worker": process.env.SIEVE_WORKER_SECRET ?? "" }, body: JSON.stringify({ job, submission }) });
     if (!response.ok) throw new Error(`worker returned ${response.status}`);
   } catch (error) {
     await store.set(`sieve:job:${job.id}`, { ...job, status: "failed", error: error instanceof Error ? error.message : "worker failed" }, { ex: RESULT_SECONDS });
   } finally {
-    await store.del("sieve:active");
+    if (await store.get<string>("sieve:active") === job.id) await store.del("sieve:active");
   }
 }
 

@@ -7,6 +7,7 @@ import {
   type ReplayEntry,
   validateLiveSuite,
 } from "./contracts";
+import { monitorLiveJob, privateReportUrl, type BrowserJob } from "./live_job";
 import "./style.css";
 
 const bundle = replayBundle as unknown as ReplayBundle;
@@ -76,7 +77,7 @@ async function importSuite(event: Event): Promise<void> {
     const [taskId, ...rest] = path.split("/");
     if (!taskId || rest.length === 0 || path.includes("..")) continue;
     const task = imported.get(taskId) ?? { task_id: taskId, files: {} };
-    task.files[rest.join("/")] = strFromU8(content);
+    task.files[rest.join("/")] = strFromU8(content as Uint8Array);
     imported.set(taskId, task);
   }
   tasks.splice(0, tasks.length, ...[...imported.values()].sort((left, right) => left.task_id.localeCompare(right.task_id)));
@@ -90,8 +91,33 @@ async function startSuite(): Promise<void> {
   if (!csrf) { notice.textContent = "Suite is valid. Unlock the live demo before starting it."; notice.className = "good small"; return; }
   const response = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json", "x-sieve-csrf": csrf }, body: JSON.stringify({ tasks }) });
   const result = await response.json().catch(() => ({})) as { id?: string };
-  notice.textContent = response.ok ? `Live suite queued privately as ${result.id}.` : "The live suite could not be queued. Check the demo limits or configuration.";
-  notice.className = response.ok ? "good small" : "bad small";
+  if (!response.ok || !result.id) {
+    notice.textContent = "The live suite could not be queued. Check the demo limits or configuration.";
+    notice.className = "bad small";
+    return;
+  }
+  notice.textContent = `Live suite ${result.id} is queued privately.`;
+  notice.className = "good small";
+  void monitorLiveJob(result.id, (job) => showJobStatus(notice, job)).catch((error: Error) => {
+    notice.textContent = error.message;
+    notice.className = "bad small";
+  });
+}
+
+function showJobStatus(notice: HTMLParagraphElement, job: BrowserJob): void {
+  if (job.status === "complete") {
+    const link = Object.assign(document.createElement("a"), { href: privateReportUrl(job.id), textContent: "Open private report" });
+    notice.replaceChildren("Live suite complete. ", link, ".");
+    notice.className = "good small";
+    return;
+  }
+  if (job.status === "failed") {
+    notice.textContent = `Live suite failed${job.error ? `: ${job.error}` : "."}`;
+    notice.className = "bad small";
+    return;
+  }
+  notice.textContent = `Live suite ${job.status} privately as ${job.id}.`;
+  notice.className = "good small";
 }
 
 function unlock(): void {

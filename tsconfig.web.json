@@ -9,5 +9,5 @@
     "strict": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["web/**/*.ts"]
+  "include": ["web/**/*.ts", "shared/**/*.ts"]
 }

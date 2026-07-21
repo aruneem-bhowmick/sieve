@@ -4,7 +4,7 @@ import { validateLiveSuite, type DemoTask } from "./contracts";
 
 function task(index: number): DemoTask {
   return {
-    task_id: `SIEVE-C${index}`,
+    task_id: `SIEVE-T${index}`,
     files: {
       "task.md": "fix it",
       "intervention_constraints.json": "{}",

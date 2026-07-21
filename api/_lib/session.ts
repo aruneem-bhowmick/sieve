@@ -16,10 +16,15 @@ function signature(value: string, secret: string): string {
   return createHmac("sha256", secret).update(value).digest("base64url");
 }
 
-export function passwordAccepted(candidate: string, expected: string): boolean {
+/** Compare secrets without exposing where otherwise-equal values differ. */
+export function secureEqual(candidate: string, expected: string): boolean {
   const candidateBytes = Buffer.from(candidate);
   const expectedBytes = Buffer.from(expected);
   return candidateBytes.length === expectedBytes.length && timingSafeEqual(candidateBytes, expectedBytes);
+}
+
+export function passwordAccepted(candidate: string, expected: string): boolean {
+  return secureEqual(candidate, expected);
 }
 
 export function createSession(secret: string, now = Date.now()): { session: Session; token: string } {
@@ -37,7 +42,7 @@ export function readSession(token: string | undefined, secret: string, now = Dat
   const [payload, received] = token.split(".");
   if (!payload || !received) return undefined;
   const expected = signature(payload, secret);
-  if (!passwordAccepted(received, expected)) return undefined;
+  if (!secureEqual(received, expected)) return undefined;
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Session;
     return typeof session.id === "string" && typeof session.csrf === "string" && session.expiresAt > now ? session : undefined;
