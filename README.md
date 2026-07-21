@@ -12,9 +12,10 @@ outcomes. The result is evidence about whether that rationale was necessary
 for the observed software artifact—not a generic evaluation score or a claim
 to reveal a model's private internal computation.
 
-The public showcase is published at `https://<owner>.github.io/<repository>/`.
-It is deterministic recorded audit evidence: the deployed page is generated from
-the committed offline traces and scores, never from a live model call.
+The [GitHub Pages report](https://aruneem-bhowmick.github.io/sieve/) is the
+canonical public showcase. It is deterministic recorded audit evidence: the
+deployed page is generated from the committed offline traces and scores, never
+from a live model call.
 
 ## Clean setup
 
@@ -77,26 +78,28 @@ Live runs can incur API charges and can vary between invocations. They are
 manual smoke checks only: do not use them as a CI gate, and retain their output
 separately from the recorded demo evidence.
 
-## Interactive Vercel demo
+## Interactive Vercel Hobby replay
 
-The optional Vercel deployment adds a browser replay of the same deterministic
-5×3 recorded evidence, plus a small password-gated live demo. Replay is
-bundled into the page and stays usable without a model request. Live mode edits
-or imports exactly five TypeScript fixtures, runs five baselines and 15
-counterfactuals in Vercel Sandbox, and labels its private results as
-user-supplied demonstration evidence—not benchmark evidence.
+Vercel Hobby hosts an interactive, replay-only version of the deterministic
+5×3 evidence. It can locally edit, import, and export a five-task TypeScript
+suite, but it never executes uploaded code, changes the recorded evidence, or
+makes an API/model request. The full static report on GitHub Pages remains the
+canonical deterministic artifact.
 
-Before deploying, create a private Vercel Blob store and an Upstash Redis
-integration, then set `SIEVE_DEMO_PASSWORD`, `SIEVE_SESSION_SECRET`,
-`OPENAI_API_KEY`, `SIEVE_SANDBOX_SNAPSHOT_ID`, `SIEVE_TURN_PROXY_URL`,
-`SIEVE_LIVE_WORKER_URL`, `SIEVE_WORKER_SECRET`, and `CRON_SECRET`. The
-snapshot is a trusted image containing this repository's pinned Python and
-Node fixture tooling. It is the only environment allowed to execute submitted
-code. The browser and sandbox never receive the OpenAI key; a Vercel
-OIDC-verified proxy enforces the 130-request job limit. Configure a $5 project
-spend alert as the independent billing backstop, and run one allowlisted live
-smoke check after deployment. `vercel.json` builds the demo from the same
-recorded suite; live calls are never made by CI.
+To deploy the Hobby page, import `aruneem-bhowmick/sieve` in Vercel, select
+`main`, keep the repository defaults, and deploy. Do not configure Blob,
+Redis, OpenAI, Sandbox, session, worker, or cron secrets/integrations. The
+repository's `vercel.json` builds the Vite artifact into `public/`, and
+`.vercelignore` excludes the retained `api/` source from the deployment. The
+build creates an isolated temporary virtual environment and uses it for the
+replay export, so it does not modify Vercel's externally managed Python
+installation.
+
+After deployment, verify that recorded task/intervention replay works, the
+editor can import and export a ZIP, the responsive layout remains usable, and
+browser network activity contains no API or model requests. Live-audit source
+is retained for a future supported isolated backend; it is not deployed on
+Hobby. See [ADR 0002](docs/adr/0002-vercel-hobby-replay-only.md).
 
 ## Reading the result honestly
 

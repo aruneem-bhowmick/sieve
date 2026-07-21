@@ -5,6 +5,7 @@
     "report:screenshot": "node tools/render_report_screenshot.mjs",
     "demo:prepare": "python tools/build_demo_replay.py --output web/static/replay.json",
     "demo:build": "npm run demo:prepare && vite build --config web/vite.config.ts",
+    "demo:verify": "npm run demo:build && node tools/verify_hobby_replay.mjs",
     "demo:dev": "vite --config web/vite.config.ts",
     "test:web": "vitest run --config web/vitest.config.ts"
   },

@@ -19,6 +19,8 @@ jobs:
       - run: npm ci
       - run: python -m sieve --help
       - run: python -m sieve run --task SIEVE-T1 --runs-dir bootstrap-runs
+      - run: npm run test:web
+      - run: npm run demo:verify
       - run: pytest -v
       - run: ruff check .
       - run: black --check .
