@@ -1,0 +1,39 @@
+1
+00:00:00,000 --> 00:00:12,000
+Coding agents explain why they make a change. But how do we know that explanation actually drove the code? Sieve intervenes on the reasoning and measures what changes.
+
+2
+00:00:12,000 --> 00:00:28,000
+Sieve captures a structured rationale, edits one claim, constraint, or hypothesis mid-run, resumes the task, and compares the resulting patch and tests.
+
+3
+00:00:28,000 --> 00:00:48,000
+Codex and GPT-5.6 use the direct Responses API backend. Each tool action requires a structured step: claim, constraint, hypothesis, planned action, and success criterion.
+
+4
+00:00:48,000 --> 00:01:05,000
+The recorded five-task audit produces five baselines, fifteen interventions, fifteen scores, and a standalone report—without an API key or live model request.
+
+5
+00:01:05,000 --> 00:01:27,000
+SIEVE-T3 / INT-02 swaps the stated prefix constraint. Patch divergence is 0.025 and the original acceptance test breaks: this constraint was load-bearing.
+
+6
+00:01:27,000 --> 00:01:48,000
+SIEVE-T1 / INT-01 deletes an optional-name claim. Patch divergence is 0.000 and tests stay stable: this claim was not necessary for that output.
+
+7
+00:01:48,000 --> 00:02:07,000
+The grid aggregates patch change and test stability. Sieve scores AST-level patch divergence and test outcomes—not text similarity.
+
+8
+00:02:07,000 --> 00:02:25,000
+The interactive replay presents the recorded five-by-three matrix and exports a local five-task suite. It never executes code or makes an API or model request.
+
+9
+00:02:25,000 --> 00:02:42,000
+Sieve measures behavioral sensitivity to a declared structured rationale, not a model’s private internal reasoning. Five tasks are a proof of concept.
+
+10
+00:02:42,000 --> 00:02:47,640
+Sieve turns agent reasoning from something developers merely read into something they can test.
