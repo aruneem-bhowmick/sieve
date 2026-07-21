@@ -5,9 +5,7 @@ import {
   type DemoTask,
   type ReplayBundle,
   type ReplayEntry,
-  validateLiveSuite,
 } from "./contracts";
-import { monitorLiveJob, privateReportUrl, type BrowserJob } from "./live_job";
 import "./style.css";
 
 const bundle = replayBundle as unknown as ReplayBundle;
@@ -15,7 +13,7 @@ const tasks = structuredClone(bundle.tasks);
 let selectedTask = tasks[0]?.task_id ?? "";
 let selectedIntervention = "INT-01";
 let selectedFile = "task.md";
-let csrf = "";
+let suiteNotice = "";
 
 function escapeHtml(value: string): string {
   const node = document.createElement("span");
@@ -45,7 +43,7 @@ function render(): void {
   const task = currentTask();
   const files = Object.keys(task.files).sort();
   if (!files.includes(selectedFile)) selectedFile = files[0] ?? "task.md";
-  document.querySelector<HTMLDivElement>("#app")!.innerHTML = `<main><header><a class="brand" href="#top" aria-label="Sieve interactive demo">SIEVE</a><span>Interactive causal audit</span><button id="login" class="quiet">Unlock live demo</button></header><section id="top" class="hero"><p class="eyebrow">Recorded replay · optional live sandbox</p><h1>Does an agent’s reasoning actually drive its code?</h1><p>Configure any recorded counterfactual now. Live mode audits your five-task TypeScript suite privately; it never changes the published benchmark evidence.</p></section><section class="grid"><article><p class="eyebrow">1. Replay the evidence</p><label>Task <select id="task">${tasks.map((candidate) => `<option ${candidate.task_id === selectedTask ? "selected" : ""}>${escapeHtml(candidate.task_id)}</option>`).join("")}</select></label><label>Intervention <select id="intervention">${["INT-01", "INT-02", "INT-03"].map((kind) => `<option ${kind === selectedIntervention ? "selected" : ""}>${kind}</option>`).join("")}</select></label>${evidence(selectedEntry())}</article><article><p class="eyebrow">2. Configure a full live suite</p><p class="small">Edit the five supplied fixtures, or import/export a ZIP. Live runs require all five tasks and all three interventions.</p><label>Fixture <select id="file">${files.map((file) => `<option value="${escapeHtml(file)}" ${file === selectedFile ? "selected" : ""}>${escapeHtml(file)}</option>`).join("")}</select></label><textarea id="editor" aria-label="${escapeHtml(selectedFile)}">${escapeHtml(task.files[selectedFile] ?? "")}</textarea><div class="actions"><button id="download">Export ZIP</button><label class="upload">Import ZIP <input id="upload" type="file" accept=".zip,application/zip" /></label><button id="start" class="primary">Validate & start live suite</button></div><p id="validation" role="status" class="small"></p></article></section><section class="limits"><p class="eyebrow">Live-demo limits</p><p>One active suite globally · one suite per browser session each UTC day · six suites globally each UTC day · 130 model requests · estimated maximum US$5/job · private artifacts deleted after 24 hours.</p><p>Custom-run results are user-supplied demonstration evidence, not benchmark evidence or a mechanistic claim about a model.</p></section><footer>Replay is bundled from recorded Sieve artifacts. No model request is made until you explicitly unlock and start a live suite.</footer></main>`;
+  document.querySelector<HTMLDivElement>("#app")!.innerHTML = `<main><header><a class="brand" href="#top" aria-label="Sieve interactive replay">SIEVE</a><span>Interactive causal audit replay</span></header><section id="top" class="hero"><p class="eyebrow">Recorded evidence · local suite preparation</p><h1>Does an agent’s reasoning actually drive its code?</h1><p>Explore the recorded five-task, three-intervention evidence, then prepare a local five-task TypeScript suite for a future audit. Your edits never change the recorded evidence and are not executed on this hosted page.</p></section><section class="grid"><article><p class="eyebrow">1. Replay the evidence</p><label>Task <select id="task">${tasks.map((candidate) => `<option ${candidate.task_id === selectedTask ? "selected" : ""}>${escapeHtml(candidate.task_id)}</option>`).join("")}</select></label><label>Intervention <select id="intervention">${["INT-01", "INT-02", "INT-03"].map((kind) => `<option ${kind === selectedIntervention ? "selected" : ""}>${kind}</option>`).join("")}</select></label>${evidence(selectedEntry())}</article><article><p class="eyebrow">2. Prepare a local five-task suite</p><p class="small">Edit the supplied fixtures or import/export a ZIP. Everything stays in this browser until you export it; the hosted replay never runs submitted code.</p><label>Fixture <select id="file">${files.map((file) => `<option value="${escapeHtml(file)}" ${file === selectedFile ? "selected" : ""}>${escapeHtml(file)}</option>`).join("")}</select></label><textarea id="editor" aria-label="${escapeHtml(selectedFile)}">${escapeHtml(task.files[selectedFile] ?? "")}</textarea><div class="actions"><button id="download">Export ZIP</button><label class="upload">Import ZIP <input id="upload" type="file" accept=".zip,application/zip" /></label></div><p id="suite-notice" role="status" class="small">${escapeHtml(suiteNotice)}</p></article></section><section class="notice"><p class="eyebrow">Replay-only guarantee</p><p>This Vercel Hobby page makes no API or model request. It only displays bundled recorded evidence and processes ZIP files locally in your browser.</p></section><footer>Recorded replay is bundled from Sieve artifacts. This hosted page never executes uploaded code, changes the evidence, or contacts an API or model.</footer></main>`;
   bind();
 }
 
@@ -56,15 +54,13 @@ function bind(): void {
   document.querySelector<HTMLTextAreaElement>("#editor")!.oninput = (event) => { currentTask().files[selectedFile] = (event.target as HTMLTextAreaElement).value; };
   document.querySelector<HTMLButtonElement>("#download")!.onclick = downloadSuite;
   document.querySelector<HTMLInputElement>("#upload")!.onchange = importSuite;
-  document.querySelector<HTMLButtonElement>("#start")!.onclick = startSuite;
-  document.querySelector<HTMLButtonElement>("#login")!.onclick = unlock;
 }
 
 function downloadSuite(): void {
   const archive: Record<string, Uint8Array> = {};
   for (const task of tasks) for (const [file, content] of Object.entries(task.files)) archive[`${task.task_id}/${file}`] = new TextEncoder().encode(content);
   const url = URL.createObjectURL(new Blob([zipSync(archive)], { type: "application/zip" }));
-  const link = Object.assign(document.createElement("a"), { href: url, download: "sieve-live-suite.zip" });
+  const link = Object.assign(document.createElement("a"), { href: url, download: "sieve-local-suite.zip" });
   link.click(); URL.revokeObjectURL(url);
 }
 
@@ -80,52 +76,14 @@ async function importSuite(event: Event): Promise<void> {
     task.files[rest.join("/")] = strFromU8(content as Uint8Array);
     imported.set(taskId, task);
   }
+  if (imported.size !== 5) {
+    suiteNotice = "Import a ZIP containing exactly five task folders; the current local suite was not changed.";
+    render();
+    return;
+  }
   tasks.splice(0, tasks.length, ...[...imported.values()].sort((left, right) => left.task_id.localeCompare(right.task_id)));
+  suiteNotice = "Imported locally. Review or export this suite; it is not executed by this page.";
   selectedTask = tasks[0]?.task_id ?? ""; selectedFile = "task.md"; render();
-}
-
-async function startSuite(): Promise<void> {
-  const errors = validateLiveSuite(tasks);
-  const notice = document.querySelector<HTMLParagraphElement>("#validation")!;
-  if (errors.length) { notice.textContent = errors.join(" "); notice.className = "bad small"; return; }
-  if (!csrf) { notice.textContent = "Suite is valid. Unlock the live demo before starting it."; notice.className = "good small"; return; }
-  const response = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json", "x-sieve-csrf": csrf }, body: JSON.stringify({ tasks }) });
-  const result = await response.json().catch(() => ({})) as { id?: string };
-  if (!response.ok || !result.id) {
-    notice.textContent = "The live suite could not be queued. Check the demo limits or configuration.";
-    notice.className = "bad small";
-    return;
-  }
-  notice.textContent = `Live suite ${result.id} is queued privately.`;
-  notice.className = "good small";
-  void monitorLiveJob(result.id, (job) => showJobStatus(notice, job)).catch((error: Error) => {
-    notice.textContent = error.message;
-    notice.className = "bad small";
-  });
-}
-
-function showJobStatus(notice: HTMLParagraphElement, job: BrowserJob): void {
-  if (job.status === "complete") {
-    const link = Object.assign(document.createElement("a"), { href: privateReportUrl(job.id), textContent: "Open private report" });
-    notice.replaceChildren("Live suite complete. ", link, ".");
-    notice.className = "good small";
-    return;
-  }
-  if (job.status === "failed") {
-    notice.textContent = `Live suite failed${job.error ? `: ${job.error}` : "."}`;
-    notice.className = "bad small";
-    return;
-  }
-  notice.textContent = `Live suite ${job.status} privately as ${job.id}.`;
-  notice.className = "good small";
-}
-
-function unlock(): void {
-  const password = window.prompt("Demo password");
-  if (!password) return;
-  fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) })
-    .then(async (response) => { if (!response.ok) throw new Error("Password was not accepted."); csrf = (await response.json() as { csrf: string }).csrf; document.querySelector<HTMLButtonElement>("#login")!.textContent = "Live demo unlocked"; })
-    .catch((error: Error) => window.alert(error.message));
 }
 
 render();

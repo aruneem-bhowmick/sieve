@@ -20,7 +20,6 @@ export interface ReplayEntry {
 import type { DemoTask } from "../../shared/live_suite";
 
 export type { DemoTask } from "../../shared/live_suite";
-export { REQUIRED_TASK_FILES, validateLiveSuite } from "../../shared/live_suite";
 
 export interface ReplayBundle {
   version: number;
