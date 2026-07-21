@@ -2,7 +2,7 @@
   <img src="assets/sieve.svg" alt="Sieve logo" width="320" />
 </p>
 
-# Sieve
+<h1 align="center">Sieve</h1>
 
 Sieve tests whether a coding agent's stated rationale is actually load-bearing: edit one reason, then measure whether the code or tests change.
 
