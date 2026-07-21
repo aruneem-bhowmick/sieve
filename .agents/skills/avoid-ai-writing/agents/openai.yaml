@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avoid AI Writing"
+  short_description: "Remove AI writing patterns"
+  default_prompt: "Use $avoid-ai-writing to make this draft sound more human."
