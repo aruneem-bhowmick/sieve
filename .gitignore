@@ -21,6 +21,7 @@ public/
 .report-generated-before.png
 .report-modern.png
 report.html
+reports/
 site/
 .bootstrap-runs/
 .showcase-runs/
