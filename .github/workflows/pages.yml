@@ -25,7 +25,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - run: python -m pip install -e ".[dev]"
+      - run: npm ci
       - run: python -m sieve run-suite --runs-dir .showcase-runs --report-path site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
