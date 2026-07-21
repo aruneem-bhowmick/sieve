@@ -59,6 +59,34 @@ def test_readme_exposes_the_three_public_submission_urls() -> None:
         assert url in readme
 
 
+def test_internal_agent_instructions_use_the_moved_development_paths() -> None:
+    """Regression: the ideator/executor workflow cannot recreate retired paths."""
+    paths = (
+        REPOSITORY_ROOT / ".codex" / "agents" / "sieve-ideator.toml",
+        REPOSITORY_ROOT / ".codex" / "agents" / "sieve-executor.toml",
+        REPOSITORY_ROOT / ".codex" / "config.toml",
+        REPOSITORY_ROOT / ".agents" / "skills" / "sieve-phase-planner" / "SKILL.md",
+    )
+
+    for path in paths:
+        contents = path.read_text(encoding="utf-8")
+        assert "docs/prompts/" not in contents
+        assert "docs/workflow/" not in contents
+
+
+def test_development_docs_cover_pages_setup_and_local_replay_preview() -> None:
+    """Acceptance: operators can publish and preview the recorded showcase."""
+    guide = (
+        REPOSITORY_ROOT / "docs" / "development" / "github-pages-showcase.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Settings → Pages → Build and deployment" in guide
+    assert "Source** to **GitHub Actions" in guide
+    assert "npm run demo:build" in guide
+    assert "npm run demo:preview" in guide
+    assert "http://127.0.0.1:4173" in guide
+
+
 def test_changelog_separates_shipped_core_from_deferred_roadmap() -> None:
     """Regression: public capability claims distinguish delivery from proposals."""
     changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
