@@ -222,6 +222,8 @@ Stable prefixes used across all phases in §13. Full IDs take the form `SIV-<ARE
 | `SIV-RPT` | Faithfulness Report (Layer 3) |
 | `SIV-TSK` | Task suite |
 | `SIV-OPS` | Tooling, CI, project scaffolding |
+| `SIV-WEB` | Interactive replay and browser demo |
+| `SIV-SEC` | Demo access, quota, and isolated execution controls |
 
 ## 13. Phase Plan (Agile — increasing functionality per increment)
 
@@ -327,11 +329,47 @@ Each phase has an **objective**, **increment** (what a user/judge can observe th
 **Depends on:** Phase 6.
 **DoD:** deferred.
 
+### Phase 8 — Interactive Demo & Isolated Live Suites *(post-hackathon)*
+**Objective:** Make Sieve understandable and explorable in a browser without
+weakening the reproducible recorded audit or exposing model credentials.
+**Increment:** A password-gated demo user can configure and replay the shipped
+recorded five-task matrix locally, edit or upload five TypeScript tasks, and
+request one isolated live full-suite audit whose private result can be viewed
+in the browser.
+**Depends on:** Phase 4.
+**DoD:** Existing `sieve run-suite` and the static GitHub Pages report remain
+valid, standalone, deterministic, and network-free at view time. The Vercel
+demo bundles the recorded 5×3 evidence for offline replay; it validates
+exactly five submitted task fixtures; live mode uses a signed session, global
+single-job lock, per-session and global daily quotas, a deployment-configured
+maximum estimated spend, and bounded model requests; all untrusted execution
+occurs in an egress-restricted Vercel Sandbox without an exposed credential;
+private submissions/results expire within 24 hours; and CI contains no live
+model call.
+
+| ID | Requirement | Test types addressed |
+|---|---|---|
+| SIV-OPS-004 | Add the interactive-demo deployment profile, environment validation, and operator documentation | Unit, Acceptance, Smoke, Regression, End-to-end, API, UI |
+| SIV-WEB-001 | Deterministically export existing recorded suite artifacts into a browser-safe replay manifest while preserving the static report pipeline | Unit, Integration, Regression, UI |
+| SIV-WEB-002 | Build the responsive replay/configuration UI: matrix controls, rationale evidence, five-task editor, ZIP import/export, and honest limitations | Unit, Integration, Acceptance, Smoke, Regression, End-to-end, UI |
+| SIV-TSK-003 | Define and validate the custom five-task submission contract, including reviewed INT-02/INT-03 replacements | Unit, Integration, System, Acceptance, Smoke, Sanity, Regression, End-to-end, API |
+| SIV-SEC-001 | Implement password sessions, CSRF protection, transactional global locking, quotas, private artifact ownership, and expiry | Unit, Integration, System, Acceptance, Smoke, Sanity, Regression, End-to-end, API |
+| SIV-RUN-004 | Implement durable live-suite orchestration: trusted model-turn proxy, sandbox-only tool/code execution, existing intervention mechanics, budget accounting, and schema revalidation | Unit, Integration, System, Acceptance, Smoke, Sanity, Regression, End-to-end, API |
+| SIV-RPT-004 | Render private live-job progress and validated result artifacts, label custom evidence, and expose cancellation/failure/budget states | Unit, Integration, Acceptance, Smoke, Regression, End-to-end, UI |
+| SIV-OPS-005 | Implement expiry cleanup, sandbox teardown, Vercel deployment checks, and a manual live-smoke runbook | Unit, Acceptance, Smoke, Regression, End-to-end, API, UI |
+
 ---
 
 ## 14. Change Control
 
 Requirement IDs are append-only — never renumbered, never deleted (mark `DEPRECATED` in place if superseded). Changes to §5 (Data Contracts) or §8 (Binding Standards) require a one-paragraph ADR appended to `docs/adr/` before implementation. Phase boundaries (§13) may be resequenced only if a Phase's DoD has not yet been met.
+
+ADR 0001 extends §8's static-report posture for the optional interactive demo:
+the canonical report remains a standalone static HTML artifact with no runtime
+network request, while a separately deployed Vercel demo may use vanilla
+browser JavaScript plus server-side TypeScript APIs, private artifact storage,
+and Vercel Sandbox for explicitly requested live runs. No live API call is
+permitted in CI, and §5 trace and score contracts remain unchanged.
 
 ## 15. Risk Register
 

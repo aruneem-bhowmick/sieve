@@ -1,10 +1,25 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
-    "report:screenshot": "node tools/render_report_screenshot.mjs"
+    "report:screenshot": "node tools/render_report_screenshot.mjs",
+    "demo:prepare": "python tools/build_demo_replay.py --output web/static/replay.json",
+    "demo:build": "npm run demo:prepare && vite build --config web/vite.config.ts",
+    "demo:dev": "vite --config web/vite.config.ts",
+    "test:web": "vitest run --config web/vitest.config.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "playwright": "1.52.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.19",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.38.0",
+    "@vercel/blob": "^2.6.1",
+    "@vercel/functions": "^3.7.5",
+    "@vercel/sandbox": "^2.8.0",
+    "fflate": "^0.8.3"
   }
 }
