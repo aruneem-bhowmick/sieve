@@ -31,28 +31,47 @@ npm ci
 The repository's continuous checks use this same setup, invoke `python -m
 sieve --help`, and run a recorded fixture without API credentials.
 
-## One-command offline demo
+## Run the demo locally
 
-After setup, run the complete deterministic audit and write its standalone
-report:
+For a polished, terminal-led demo, generate a fresh recorded audit and open
+its standalone results page:
+
+```powershell
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$runs = "runs/demo-$stamp"
+$report = "reports/sieve-audit-$stamp.html"
+python -m sieve run-suite --runs-dir $runs --report-path $report
+Start-Process $report
+```
+
+This command never calls a model API or consumes API tokens. It writes five
+recorded baselines, 15 single-intervention runs, and 15 score records beneath
+`$runs`, then opens a modern, standalone dark results page with the
+patch-change/test-stability grid, per-task evidence, and limitations. The
+timestamp avoids overwriting evidence from an earlier run.
+
+For a stable, named local report instead, run:
 
 ```powershell
 python -m sieve run-suite --runs-dir runs/release-audit --report-path report.html
 ```
 
-This command never calls a model API or consumes API tokens. It writes five
-recorded baselines, 15 single-intervention runs, and 15 score records beneath
-`runs/release-audit/`, then creates `report.html`. Open that file locally to
-inspect the patch-change/test-stability grid, per-task scores, and limitations.
-Choose a new `--runs-dir` and report path for each invocation: Sieve refuses to
-overwrite existing audit evidence.
+Then show the interactive replay locally:
 
-For a smaller deterministic check of the first task, run:
+```powershell
+npm run demo:build
+npm run demo:preview
+```
 
-GitHub Pages uses the same command in `.github/workflows/pages.yml` to publish
-`site/index.html`. Once, set the repository’s **Settings → Pages → Build and
-deployment → Source** to **GitHub Actions**. The generated page is a standalone
-offline artifact and makes no network request when viewed.
+Open the `http://127.0.0.1:4173` address printed by Vite. This is the hosted
+replay experience: it presents the recorded 5×3 evidence and lets you locally
+prepare, import, and export a five-task suite. It never executes that suite or
+makes an API/model request.
+
+GitHub Pages uses the same recorded audit path in `.github/workflows/pages.yml`
+to publish `site/index.html`. Once, set the repository’s **Settings → Pages →
+Build and deployment → Source** to **GitHub Actions**. The generated page is a
+standalone offline artifact and makes no network request when viewed.
 
 For a smaller deterministic check of the first task, run:
 

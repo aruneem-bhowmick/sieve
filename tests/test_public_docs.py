@@ -20,6 +20,8 @@ def test_readme_documents_the_verified_offline_audit_path() -> None:
         "--report-path report.html"
     ) in readme
     assert "This command never calls a model API" in readme
+    assert "Start-Process $report" in readme
+    assert "npm run demo:preview" in readme
     assert "--live" in readme
 
 

@@ -35,6 +35,14 @@ def test_browser_source_has_no_live_request_or_live_controls() -> None:
     assert "makes no API or model request" in source
 
 
+def test_replay_outcomes_keep_distinct_monochrome_states() -> None:
+    """Regression: pass/fail evidence remains scannable without color accents."""
+    stylesheet = (ROOT / "web" / "src" / "style.css").read_text(encoding="utf-8")
+
+    assert ".good { color: #f2f2f2; }" in stylesheet
+    assert ".bad { color: #bdbdbd;" in stylesheet
+
+
 def test_ci_runs_the_replay_artifact_guard_without_scanning_replay_data() -> None:
     """Regression: CI verifies the built app shell, not task-fixture content."""
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
