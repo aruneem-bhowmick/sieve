@@ -90,7 +90,9 @@ To deploy the Hobby page, import `aruneem-bhowmick/sieve` in Vercel, select
 `main`, keep the repository defaults, and deploy. Do not configure Blob,
 Redis, OpenAI, Sandbox, session, worker, or cron secrets/integrations. The
 repository's `vercel.json` builds the Vite artifact into `public/`, and
-`.vercelignore` excludes the retained `api/` source from the deployment.
+`.vercelignore` excludes the retained `api/` source from the deployment. The
+build creates an isolated temporary virtual environment, so it does not modify
+Vercel's externally managed Python installation.
 
 After deployment, verify that recorded task/intervention replay works, the
 editor can import and export a ZIP, the responsive layout remains usable, and

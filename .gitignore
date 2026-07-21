@@ -13,3 +13,4 @@ runs/
 .demo-runs-v2/
 .demo-report-v2.html
 public/
+.sieve-build-venv/

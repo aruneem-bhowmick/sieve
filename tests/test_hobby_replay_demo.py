@@ -13,7 +13,11 @@ def test_vercel_profile_is_static_and_excludes_server_source() -> None:
     profile = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
 
     assert profile == {
-        "buildCommand": "python -m pip install -e . && npm ci && npm run demo:build",
+        "buildCommand": (
+            "python -m venv .sieve-build-venv && "
+            ".sieve-build-venv/bin/python -m pip install -e . && "
+            "npm ci && npm run demo:build"
+        ),
         "outputDirectory": "public",
     }
     assert (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines() == ["api/"]

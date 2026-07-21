@@ -1,4 +1,4 @@
 {
-  "buildCommand": "python -m pip install -e . && npm ci && npm run demo:build",
+  "buildCommand": "python -m venv .sieve-build-venv && .sieve-build-venv/bin/python -m pip install -e . && npm ci && npm run demo:build",
   "outputDirectory": "public"
 }
