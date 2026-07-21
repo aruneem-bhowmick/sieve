@@ -73,7 +73,8 @@ button:hover, .upload:hover { background: #222; }
 .evidence div { min-height: 92px; padding: .9rem; background: #171717; }
 dt { color: #929292; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 dd { margin: .35rem 0 0; font-size: 1.1rem; font-weight: 650; overflow-wrap: anywhere; }
-.good, .bad { color: #f2f2f2; }
+.good { color: #f2f2f2; }
+.bad { color: #bdbdbd; text-decoration: underline; text-decoration-color: #666; text-underline-offset: .18em; }
 details { margin-top: 1.35rem; padding-top: 1rem; border-top: 1px solid #343434; }
 summary { cursor: pointer; color: #e2e2e2; font-size: .85rem; font-weight: 650; }
 details p { color: #9b9b9b; font-size: .85rem; }
