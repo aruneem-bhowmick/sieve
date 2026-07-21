@@ -77,6 +77,27 @@ Live runs can incur API charges and can vary between invocations. They are
 manual smoke checks only: do not use them as a CI gate, and retain their output
 separately from the recorded demo evidence.
 
+## Interactive Vercel demo
+
+The optional Vercel deployment adds a browser replay of the same deterministic
+5×3 recorded evidence, plus a small password-gated live demo. Replay is
+bundled into the page and stays usable without a model request. Live mode edits
+or imports exactly five TypeScript fixtures, runs five baselines and 15
+counterfactuals in Vercel Sandbox, and labels its private results as
+user-supplied demonstration evidence—not benchmark evidence.
+
+Before deploying, create a private Vercel Blob store and an Upstash Redis
+integration, then set `SIEVE_DEMO_PASSWORD`, `SIEVE_SESSION_SECRET`,
+`OPENAI_API_KEY`, `SIEVE_SANDBOX_SNAPSHOT_ID`, `SIEVE_TURN_PROXY_URL`,
+`SIEVE_LIVE_WORKER_URL`, `SIEVE_WORKER_SECRET`, and `CRON_SECRET`. The
+snapshot is a trusted image containing this repository's pinned Python and
+Node fixture tooling. It is the only environment allowed to execute submitted
+code. The browser and sandbox never receive the OpenAI key; a Vercel
+OIDC-verified proxy enforces the 130-request job limit. Configure a $5 project
+spend alert as the independent billing backstop, and run one allowlisted live
+smoke check after deployment. `vercel.json` builds the demo from the same
+recorded suite; live calls are never made by CI.
+
 ## Reading the result honestly
 
 Sieve measures behavioral sensitivity to an edited structured rationale. A

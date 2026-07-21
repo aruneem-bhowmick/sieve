@@ -8,3 +8,8 @@ runs/
 .verification-runs/
 *.pyc
 *.egg-info/
+.demo-runs/
+.demo-report.html
+.demo-runs-v2/
+.demo-report-v2.html
+public/
